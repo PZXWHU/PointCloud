@@ -1,0 +1,46 @@
+
+            //协处理器的部署
+            //1.静态部署
+            //通过修改hbase配置文件，并且将打包好的协处理器的jar包放到habse的classpath路径中，重启hbase即可
+            //这种方式加载的协处理器是全局的，所有表所有region都有，并且时系统级别的优先级
+
+            //2.动态部署(放在hdfs上)
+            //通过表描述符HTableDescripot.setValue()进行设置，需要将jar包放到hdfs中，设置时需要disable表，设置完成enbale表，即可
+            //此种加载是针对单个表的，只有此表的region会拥有这种协处理器
+
+            //协处理器加载
+            //1.从配置文件中加载
+            //用户通过在hbase-site.xml文件中注册自己的协处理器类
+            //配置文件中的顺序非常重要，决定了执行顺序
+            //所有的协处理器都是以系统级优先级进行加载的
+            //默认的协处理器会被每张表和每个region加载
+
+            //2.从表描述符中加载
+            //因为是针对特定表的，所以加载协处理器只针对这个表的region
+            HTableDescriptor hTableDescriptor = null;
+            //hTableDescriptor.setValue();必须使用此种方法进行定义
+            //键必须以COPROCESSOR开头，值必须符合path-to-jar|classname|priority
+            //使用后缀$<number>后缀可以改变定义中的顺序，即协处理器加载的顺序
+
+
+            总之两种方式：
+            1、打包jar，放在hbase classpath，修改hbase-site.xml文件，重启hbase，加载协处理器，此时的协处理器是全局的
+            2、打包jar，放在hbase上，利用表描述符hTableDescriptor.addCoprocessor;，加载协处理器，此时的协处理器的针对表的。使用hTableDescriptor.removeCoprocessor卸载协处理器
+               也可以使用hbase shell加载
+               加载：alter 'test', METHOD => 'table_att', 'coprocessor' =>'/yco/coprocessor1-1.0.jar |cn.edu.whu.stdb.coprocessor.scanner_demo.EndPoint|1073741823|'
+               卸载：alter 'DGObject:wuhan_index_5', METHOD => 'table_att_unset', NAME => 'coprocessor$1'
+
+注意点：
+
+hbase shell显示表上有协处理器并不意味着加载成功，要看regionserver的日志确定
+加载不成功，需先卸载协处理器
+
+“java.lang.LinkageError:loader constraint violation in interface itable initialization...”表示发生了jar包冲突，就是一个工程中不止1个jar包中包含了完全相同的类，JVM不确定应该使用哪个jar包，解决办法就是直接删除多余jar包(确保jar包其余类不会被工程使用)。由于使用Maven的assembly插件打包时，选择了“jar-with-dependencies”的方式将依赖的所有jar包也打到了EndPoint中，在加载EndPoint时，EndPoint对应jar包中的类与HBase ClassPath中某个jar包对应的类完全相同，JVM不确定应该使用哪个Jar包，因此加载不成功。
+
+找到了原因，对应的解决方法就很简单了，去掉Maven的assembly插件中的“jar-with-dependencies”选项，仅将SumEndPoint.java和Sum.java打到jar包中，然后重新加载就可以了。
+
+保持疑问？？：不确定是否正确
+每次重装要给协处理器换个名字
+不然就会重名
+即使卸载了也会记得之前的名字
+然后卸载了之后重启hbase

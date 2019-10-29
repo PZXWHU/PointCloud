@@ -1,0 +1,10 @@
+{
+
+    "type":"record",
+    "name":"HadoopAPI.StringPair",
+    "doc":"a pair of strings",
+    "fields":[
+        {"name":"left","type":"string"},
+        {"name":"right","type":"string"}
+    ]
+}

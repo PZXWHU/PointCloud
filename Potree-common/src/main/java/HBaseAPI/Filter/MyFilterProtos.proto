@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+option java_package = "com.potree.mdhbase";
+option java_outer_classname = "MyFilterProtos";
+option java_generic_services = true;
+option java_generate_equals_and_hash = true;
+option optimize_for = SPEED;
+
+message RangeFilter {
+  required int32 xmin=1;
+  required int32 xmax=2;
+  required int32 ymin=3;
+  required int32 ymax=4;
+}
