@@ -82,7 +82,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.pzx.App</mainClass>
+                            <mainClass>com.TxtSplit</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
