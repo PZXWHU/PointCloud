@@ -1,0 +1,4 @@
+hdfs==2.5.8
+numpy==1.15.3
+laspy==1.6.0
+pyspark==2.4.4
