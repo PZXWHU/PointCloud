@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/dataImport/dataImport.iml" filepath="$PROJECT_DIR$/dataImport/dataImport.iml" />
+      <module fileurl="file://$PROJECT_DIR$/myHadoopUtils/myHadoopUtils.iml" filepath="$PROJECT_DIR$/myHadoopUtils/myHadoopUtils.iml" />
+      <module fileurl="file://$PROJECT_DIR$/potreeWeb/potreeWeb.iml" filepath="$PROJECT_DIR$/potreeWeb/potreeWeb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sparktest.iml" filepath="$PROJECT_DIR$/sparktest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/splitPointCloud/splitPointCloud.iml" filepath="$PROJECT_DIR$/splitPointCloud/splitPointCloud.iml" />
+    </modules>
+  </component>
+</project>
