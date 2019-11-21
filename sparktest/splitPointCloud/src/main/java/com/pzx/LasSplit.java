@@ -236,6 +236,7 @@ public class LasSplit {
             logger.info("-------------------------------------------------------------spark任务结束，处理中间文件："+tmpFileName);
         });
 
+
         try {
             countDownLatch.await();
             logger.info("-------------------------------------------------------------全部spark任务完成");
@@ -243,6 +244,8 @@ public class LasSplit {
             e.printStackTrace();
         }
 
+        //关闭 JavaSparkContext
+        sc.close();
     }
 
 
@@ -303,27 +306,27 @@ public class LasSplit {
             int newZ = (int)((z-xyzOffset[2])/scale[2]);
 
 
+            /*
             byte[] xBytes = LittleEndianUtils.integerToBytes(newX);
             byte[] yBytes = LittleEndianUtils.integerToBytes(newY);
             byte[] zBytes = LittleEndianUtils.integerToBytes(newZ);
 
+             */
+            byte[] coordinateBytes = SplitUtils.pointInZigZagFormat(new int[]{newX,newY,newZ});
+            int coordinateBytesLength = coordinateBytes.length;
+
             byte[] newClodBytes = LittleEndianUtils.shortToBytes((short)(clod/0.01));
 
-            byte[] pointNewBytesArray = new byte[17];
-            for(int i=0;i<4;i++){
-                pointNewBytesArray[i] = xBytes[i];
+            byte[] pointNewBytesArray = new byte[coordinateBytes.length+5];
+            for(int i=0;i<coordinateBytesLength;i++){
+                pointNewBytesArray[i] = coordinateBytes[i];
             }
-            for(int i=0;i<4;i++){
-                pointNewBytesArray[i+4] = yBytes[i];
-            }
-            for(int i=0;i<4;i++){
-                pointNewBytesArray[i+8] = zBytes[i];
-            }
-            pointNewBytesArray[12] = r;
-            pointNewBytesArray[13] = g;
-            pointNewBytesArray[14] = b;
-            pointNewBytesArray[15] = newClodBytes[0];
-            pointNewBytesArray[16] = newClodBytes[1];
+
+            pointNewBytesArray[coordinateBytesLength] = r;
+            pointNewBytesArray[coordinateBytesLength+1] = g;
+            pointNewBytesArray[coordinateBytesLength+2] = b;
+            pointNewBytesArray[coordinateBytesLength+3] = newClodBytes[0];
+            pointNewBytesArray[coordinateBytesLength+4] = newClodBytes[1];
 
              /*
             String[] strings = new String[]{"r","r1","r2","r3","r4","r5","r6"};

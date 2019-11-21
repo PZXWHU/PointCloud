@@ -44,14 +44,14 @@ public class SplitUtilsTest {
     @Test
     public void getLocationOnSingleAxis(){
 
-        String name  = SplitUtils.getLocationOnSingleAxis(1.26,10,0,4);
-        System.out.println(name);
+        //String name  = SplitUtils.getLocationOnSingleAxis(1.26,10,0,4);
+        //System.out.println(name);
     }
 
     @Test
     public void getNodeName(){
-        String nodeName = SplitUtils.getNodeName("101","000","110");
-        System.out.println(nodeName);
+        //String nodeName = SplitUtils.getNodeName("101","000","110");
+        //System.out.println(nodeName);
     }
 
     @Test

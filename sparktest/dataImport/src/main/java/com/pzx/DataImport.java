@@ -57,7 +57,7 @@ public class DataImport
         List<Put> puts = new ArrayList<>();
 
         List<String> filePathList = IOUtils.listAllFiles(dataDirStr);
-        int count = 0;
+
         for (String filePath : filePathList) {
 
             String suffix = filePath.split("\\.")[filePath.split("\\.").length - 1];
@@ -78,19 +78,17 @@ public class DataImport
                     break;
             }
 
-            count++;
-            if (count >= 50) {
+
+            if (puts.size() >= 25) {
                 logger.info("开始插入！");
                 table.put(puts);
                 puts.clear();
-                count = 0;
                 logger.info("插入完成！");
 
             }
         }
         logger.info("开始插入！");
         table.put(puts);
-        puts.clear();
         logger.info("插入完成！");
 
 

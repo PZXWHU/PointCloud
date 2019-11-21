@@ -1,6 +1,8 @@
 package com.pzx;
 
 
+import java.util.ArrayList;
+import java.util.List;
 
 public class SplitUtils {
 
@@ -29,7 +31,7 @@ public class SplitUtils {
     }
 
     /**
-     *
+     *获取点所属的八叉树节点的名称
      * @param x
      * @param y
      * @param z
@@ -48,7 +50,15 @@ public class SplitUtils {
     }
 
 
-    public static String getLocationOnSingleAxis(double x,double maxx,double minx,int dlod){
+    /**
+     * 获取x在x轴上的位置，level为dlod
+     * @param x
+     * @param maxx
+     * @param minx
+     * @param dlod
+     * @return 二进制字符串，表示x在x轴上的位置 二分法表示
+     */
+    private static String getLocationOnSingleAxis(double x,double maxx,double minx,int dlod){
         String locationOnSingleAxis = "";
         /*
         if(dlod==0)
@@ -80,7 +90,14 @@ public class SplitUtils {
         return locationOnSingleAxis;
     }
 
-    public static String getNodeName(String xLocation,String yLocation,String zLocation){
+    /**
+     * 获取八叉树节点名字
+     * @param xLocation 二进制字符串表示点在x轴上的位置
+     * @param yLocation
+     * @param zLocation
+     * @return
+     */
+    private static String getNodeName(String xLocation,String yLocation,String zLocation){
         if(xLocation.length()==yLocation.length()?(xLocation.length()==zLocation.length()?false:true):true)
             throw new IllegalArgumentException("三个字符串参数长度不一致！");
         String nodeName = "r";
@@ -93,6 +110,12 @@ public class SplitUtils {
     }
 
 
+    /**
+     * 获取某个八叉树节点左下角的offset
+     * @param nodeKey r0123
+     * @param boundingBox
+     * @return
+     */
     public static double[] getXYZOffset(String nodeKey,double[] boundingBox){
         int level = nodeKey.length()-1;
         double xOffset = 0.0;
@@ -109,6 +132,26 @@ public class SplitUtils {
     }
 
 
+    /**
+     * 以ZigZagFormat编码XYZ
+     * @param xyzCoordinates
+     * @return
+     */
+    public static byte[] pointInZigZagFormat(int[] xyzCoordinates){
+        List<Byte> list = new ArrayList<>();
+        for(int coordinate :xyzCoordinates){
+            while (coordinate>>7 > 0){
+                list.add((byte)((1 << 7)+ (coordinate & 0x7f)));
+                coordinate = coordinate >>7;
+            }
+            list.add((byte)coordinate);
+        }
+        byte[] zigZagBytes = new byte[list.size()];
+        for(int i =0;i<list.size();i++){
+            zigZagBytes[i] = list.get(i);
+        }
+        return zigZagBytes;
+    }
 
 
 }
