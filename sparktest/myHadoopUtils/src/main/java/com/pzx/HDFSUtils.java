@@ -9,18 +9,25 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 
 public class HDFSUtils {
 
     private static Logger logger = Logger.getLogger(HDFSUtils.class);
-    //private static FileSystem hdfsFs = null;
+    private static FileSystem hdfsFs = init();
 
 
-    public static FileSystem init(){
+    private static FileSystem init(){
         try {
             Configuration conf = new Configuration();
-            conf.set("fs.defaultFS", "hdfs://master:9000");
-            conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
+
+            InputStream hdfsPropertiesInputStream = HDFSUtils.class.getClassLoader().getResourceAsStream("hdfs.conf");
+            Properties hdfsProperties = new Properties();
+            hdfsProperties.load(hdfsPropertiesInputStream);
+            for(String hdfsPropertyNames:hdfsProperties.stringPropertyNames()){
+                conf.set(hdfsPropertyNames,hdfsProperties.getProperty(hdfsPropertyNames));
+            }
+
             FileSystem hdfsFs = FileSystem.get(conf);
             return hdfsFs;
         }catch (IOException e){
@@ -28,20 +35,16 @@ public class HDFSUtils {
             return null;
         }
 
-        /*
-        DataInputStream getIt = fs.open(new Path("hdfs://master:8020/pzxFile/file.txt"));
-        BufferedReader d = new BufferedReader(new InputStreamReader(getIt));
-        String content = d.readLine(); //读取文件一行
-        System.out.println(content);
-        fs.close();
-
-         */
     }
 
 
+    /**
+     * 返回新创建的FileSystem，避免类中静态变量hdfsFs被关闭
+     * @return
+     */
     public static FileSystem getFileSystem(){
-        FileSystem fileSystem = HDFSUtils.init();
-        return fileSystem;
+        //FileSystem fileSystem = HDFSUtils.init();
+        return HDFSUtils.init();
     }
 
     public static void write(){
@@ -59,23 +62,23 @@ public class HDFSUtils {
     }
 
     public static byte[] read(String filePath) throws IOException{
-        FileSystem hdfsFs = init();
-            FSDataInputStream inputStream = hdfsFs.open(new Path(filePath));
-            int length = inputStream.available();
-            byte[] bytes = new byte[length];
-            inputStream.readFully(0,bytes);
-            inputStream.close();
-         close(hdfsFs);
-            return bytes;
+        FileSystem hdfsFs = getFileSystem();
+        FSDataInputStream inputStream = hdfsFs.open(new Path(filePath));
+        int length = inputStream.available();
+        byte[] bytes = new byte[length];
+        inputStream.readFully(0,bytes);
+        inputStream.close();
+
+        return bytes;
 
 
     }
 
     public static void deleteFile(String filePath)throws IOException{
 
-        FileSystem hdfsFs = init();
+        FileSystem hdfsFs = getFileSystem();
         hdfsFs.deleteOnExit(new Path(filePath));
-        close(hdfsFs);
+
 
     }
 
@@ -90,7 +93,7 @@ public class HDFSUtils {
 
 
     private static List<String> listFileIsOrNotRecursive(String path,boolean recursive){
-        FileSystem hdfsFs = init();
+        FileSystem hdfsFs = getFileSystem();
         List<String> fileList = new ArrayList<>();
         try {
             RemoteIterator<LocatedFileStatus> iterator = hdfsFs.listFiles(new Path(path),recursive);
@@ -104,9 +107,7 @@ public class HDFSUtils {
             logger.warn("HDFS文件列出失败");
             return null;
         }
-        finally {
-            close(hdfsFs);
-        }
+
     }
 
 

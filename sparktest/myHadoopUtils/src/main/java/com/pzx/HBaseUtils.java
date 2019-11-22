@@ -7,63 +7,68 @@ import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Logger;
 
 public class HBaseUtils {
 
-    public static Configuration configuration = null;
-    public static Connection connection = null;
-    public static Admin admin = null;
-    private static Logger log = Logger.getLogger("hbaseutilslog");
 
-    public static void init(){
-        configuration = HBaseConfiguration.create();
-        /*虚拟机HBase
-        configuration.set("hbase.zookeeper.quorum","master");
-        configuration.set("hbase.zookeeper.property.clientPort", "2181");
-        configuration.set("hbase.rootdir","hdfs://master:9000/hbase");
-
-        */
+    public static Connection connection = initConnection();
+    public static Admin admin = initAdmin();
 
 
-        //公司Hbase
-        //configuration.set("hbase.rootdir", "hdfs://master:9000/hbase");
-        /*
-        configuration.set("hbase.rootdir", "hdfs://master:8020/HBase_DB");
-        configuration.set("hbase.zookeeper.property.clientPort", "2181");
-        configuration.set("hbase.zookeeper.quorum", "master,slave1,slave2");
-        */
-
-        //hlx Hbase
-        configuration.set("hbase.rootdir", "hdfs://master:9000/HBase_DB");
-        configuration.set("hbase.zookeeper.property.clientPort", "2181");
-        configuration.set("hbase.zookeeper.quorum", "master,slave1,slave2,slave3");
-
-
-
+    public static Connection initConnection(){
         try{
+            Configuration configuration = HBaseConfiguration.create();
+
+            //公司Hbase
+            //configuration.set("hbase.rootdir", "hdfs://master:9000/hbase");
+            /*
+            configuration.set("hbase.rootdir", "hdfs://master:8020/HBase_DB");
+            configuration.set("hbase.zookeeper.property.clientPort", "2181");
+            configuration.set("hbase.zookeeper.quorum", "master,slave1,slave2");
+            */
+
+            InputStream hbasePropertiesInputStream = HBaseUtils.class.getClassLoader().getResourceAsStream("hbase.conf");
+            Properties hbaseProperties = new Properties();
+            hbaseProperties.load(hbasePropertiesInputStream);
+            for(String hbasePropertyNames:hbaseProperties.stringPropertyNames()){
+                configuration.set(hbasePropertyNames,hbaseProperties.getProperty(hbasePropertyNames));
+            }
+
             connection = ConnectionFactory.createConnection(configuration);
-            admin = connection.getAdmin();
-            log.info("连接成功！");
+            return connection;
+
         }catch (Exception e){
-            log.info("连接失败！");
-            System.out.println("连接失败！");
-            e.toString();
+
+            System.out.println("初始化连接失败！");
+            e.printStackTrace();
+            return null;
         }
     }
 
-    public static void close(){
+    private static Admin initAdmin(){
+        try {
+            if(connection!=null){
+                return connection.getAdmin();
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static void close(Connection connection){
         try{
-            if(admin!=null)
-                admin.close();
             if(connection!=null)
                 connection.close();
         }catch (Exception e){
             e.printStackTrace();
-            log.info("关闭失败");
+
         }
     }
 
@@ -72,7 +77,7 @@ public class HBaseUtils {
         try{
             TableName tableName = TableName.valueOf(myTableName);
             if(admin.tableExists(tableName)){
-                log.info("创建表：表已存在！");
+                System.out.println("创建表：表已存在！");
             }else{
                 /* 2.0 API
                 TableDescriptorBuilder tableDescriptorBuilder = TableDescriptorBuilder.newBuilder(tableName);//2.x API
@@ -87,7 +92,7 @@ public class HBaseUtils {
                     hbaseTable.addFamily(new HColumnDescriptor(familyName));
                 }
                 admin.createTable(hbaseTable);
-                log.info("创建表成功");
+                System.out.println("创建表成功");
             }
 
             /*
@@ -102,8 +107,7 @@ public class HBaseUtils {
              */
 
         }catch (Exception e){
-            log.severe(e.toString());
-            log.info("创建表失败");
+            e.printStackTrace();
         }
     }
 
@@ -114,13 +118,12 @@ public class HBaseUtils {
             if(admin.tableExists(tn)){
                 admin.disableTable(tn);
                 admin.deleteTable(tn);
-                log.info("删除表成功");
+
             }else{
-                log.info("删除表：表不存在");
+
             }
         }catch (Exception e){
-            log.info("删除表失败");
-            log.severe(e.toString());
+            e.printStackTrace();
         }
     }
 
@@ -144,8 +147,7 @@ public class HBaseUtils {
 
 
         }catch (Exception e){
-            log.severe(e.toString());
-            log.severe("列出全部表失败");
+            e.printStackTrace();
         }
     }
 
@@ -159,10 +161,9 @@ public class HBaseUtils {
 
             table.put(put);
             table.close();
-            log.info("插入成功");
+
         }catch (Exception e){
-            log.severe(e.toString());
-            log.info("插入失败");
+           e.printStackTrace();
         }
     }
 
@@ -173,10 +174,9 @@ public class HBaseUtils {
             Delete delete = new Delete(Bytes.toBytes(rowKey));
             table.delete(delete);
             table.close();
-            log.info("删除表成功");
+
         }catch (Exception e){
-            log.severe(e.toString());
-            log.info("删除失败");
+            e.printStackTrace();
         }
     }
 
@@ -194,8 +194,7 @@ public class HBaseUtils {
             //log.info("获取数据成功");
             return bytes;
         }catch (Exception e){
-            log.severe(e.toString());
-            log.info("获取数据失败");
+            e.printStackTrace();
             return null;
         }
     }
@@ -218,12 +217,10 @@ public class HBaseUtils {
             TableName tableName = TableName.valueOf(myTableName);
             Table table = connection.getTable(tableName);
 
-
             table.batch(actions,results);
 
         }catch (Exception e ){
-            log.severe(e.toString());
-            log.info("批量操作失败");
+            e.printStackTrace();
         }
 
         for(Object result : results){
@@ -244,8 +241,7 @@ public class HBaseUtils {
             }
 
         }catch (IOException e){
-            log.severe(e.toString());
-            log.info("扫描错误");
+            e.printStackTrace();
         }
 
     }
@@ -263,9 +259,9 @@ public class HBaseUtils {
             HBaseUtils.admin.modifyTable(TableName.valueOf(tableName),hTableDescriptor);
             HBaseUtils.admin.enableTable(TableName.valueOf(tableName));
 
-            log.info("加载协处理器成功!");
+            System.out.println("加载协处理器成功!");
         }catch (Exception e){
-            log.severe("加载协处理器失败！");
+            System.out.println("加载协处理器失败！");
         }
 
     }
@@ -281,9 +277,9 @@ public class HBaseUtils {
             HBaseUtils.admin.modifyTable(TableName.valueOf(tableName),hTableDescriptor);
             HBaseUtils.admin.enableTable(TableName.valueOf(tableName));
 
-            log.info("卸载协处理器成功");
+            System.out.println("卸载协处理器成功");
         }catch (Exception e){
-            log.severe("卸载协处理器失败！");
+            System.out.println("卸载协处理器失败！");
         }
 
     }
@@ -305,14 +301,18 @@ public class HBaseUtils {
 
 
         }catch (Exception e){
-            log.severe(e.toString());
+            e.printStackTrace();
         }
     }
 
+    /**
+     * 返回新创建的connection，避免类中静态变量connection被关闭
+     * @return
+     */
     public static Connection getConnection(){
-        return connection;
+        return initConnection();
     }
 
-    public static Admin getAdmin(){return admin;}
+
 
 }
