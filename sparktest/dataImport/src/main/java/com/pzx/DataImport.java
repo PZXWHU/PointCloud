@@ -1,6 +1,7 @@
 package com.pzx;
 
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -34,21 +35,19 @@ public class DataImport
             }
             String tableName = args[0];
             String dataDirStr = args[1];
-            HBaseUtils.init();
 
-            if(!HBaseUtils.getAdmin().tableExists(TableName.valueOf(tableName))){
+            Connection hbaseConnection = HBaseUtils.getConnection();
+
+            if(!hbaseConnection.getAdmin().tableExists(TableName.valueOf(tableName))){
                 HBaseUtils.createTable(tableName,new String[]{"data"});
             }
 
-
-            Table table = HBaseUtils.connection.getTable(TableName.valueOf(tableName));
+            Table table = hbaseConnection.getTable(TableName.valueOf(tableName));
             file2HBase(dataDirStr,table);
 
         }catch (Exception e){
             logger.warn("failed");
             e.printStackTrace();
-        }finally {
-            HBaseUtils.close();
         }
     }
 

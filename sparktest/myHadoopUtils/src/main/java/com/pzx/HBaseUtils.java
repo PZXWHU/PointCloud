@@ -17,8 +17,8 @@ import java.util.logging.Logger;
 public class HBaseUtils {
 
 
-    public static Connection connection = initConnection();
-    public static Admin admin = initAdmin();
+    private static Connection connection = initConnection();
+    private static Admin admin = initAdmin();
 
 
     public static Connection initConnection(){
