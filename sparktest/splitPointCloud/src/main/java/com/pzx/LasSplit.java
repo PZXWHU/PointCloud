@@ -1,9 +1,13 @@
 package com.pzx;
 
 import com.alibaba.fastjson.JSONObject;
+import com.pzx.distributedLock.DistributedRedisLock;
+import com.pzx.distributedLock.RedissonManager;
 import com.pzx.las.LasFile;
 import com.pzx.las.LasFileHeader;
+import com.pzx.las.LasFilePointData;
 import com.pzx.las.LittleEndianUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
@@ -11,6 +15,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -21,10 +26,11 @@ import java.util.stream.Collectors;
 public class LasSplit {
 
     private static Logger logger = Logger.getLogger(LasSplit.class);
-    public static int SPARK_DEFAULT_PARALLELISM = 25;
-    private static long pointBatchLimit = 40000000;
-    private static int pointNumPerNode = 5000;
+
+    private static long pointBatchLimit = 30000000;
+    private static int pointNumPerNode = 2000;
     private static int dimension = 3;
+
 
     public static void main(String[] args) {
         //输入本地输入路径
@@ -147,16 +153,32 @@ public class LasSplit {
      */
     public static JavaSparkContext sparkInit(){
 
-        SparkConf sparkConf = new SparkConf();
-        sparkConf.setAppName("spilt pointCloud").setMaster("spark://master:7077");
-        //sparkConf.set("spark.serializer","org.apache.spark.serializer.KryoSerializer");
-        //sparkConf.registerKryoClasses(new Class[]{String[].class,String.class,List.class});
-        //sparkConf.set("spark.executor.extraJavaOptions","-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/tmp/gc.log");//输出GC日志
-        //sparkConf.set("spark.driver.extraJavaOptions","-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/tmp/gc.log");
-        sparkConf.set("spark.default.parallelism",SPARK_DEFAULT_PARALLELISM+"");
-        //sparkConf.set("spark.executor.memory","4g");
-        JavaSparkContext sc = new JavaSparkContext(sparkConf);
-        return sc;
+        try {
+            InputStream sparkPropertiesInputStream = LasSplit.class.getClassLoader().getResourceAsStream("spark.conf");
+            Properties sparkProperties = new Properties();
+            sparkProperties.load(sparkPropertiesInputStream);
+
+            SparkConf sparkConf = new SparkConf();
+            for(String sparkPropertyNames:sparkProperties.stringPropertyNames()){
+                sparkConf.set(sparkPropertyNames,sparkProperties.getProperty(sparkPropertyNames));
+            }
+
+            //sparkConf.set("spark.serializer","org.apache.spark.serializer.KryoSerializer");
+            //sparkConf.registerKryoClasses(new Class[]{String[].class,String.class,List.class});
+            //sparkConf.set("spark.executor.extraJavaOptions","-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/tmp/gc.log");//输出GC日志
+            //sparkConf.set("spark.driver.extraJavaOptions","-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/tmp/gc.log");
+            //sparkConf.set("spark.executor.memory","4g");
+            JavaSparkContext sc = new JavaSparkContext(sparkConf);
+            return sc;
+
+        }catch (Exception e){
+            e.printStackTrace();
+            logger.warn("sparkContext初始化失败！");
+            return null;
+        }
+
+
+
 
     }
 
@@ -191,21 +213,52 @@ public class LasSplit {
         doSparkTask(sc,pointBytesList,cloudjs,outputDirPath);
 
          */
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        long points = cloudjs.getLong("points");
-        CountDownLatch countDownLatch = new CountDownLatch((int)Math.ceil((double) points/pointBatchLimit));
-        logger.info("-----------------------------------spark任务数量："+(int)Math.ceil((double) points/pointBatchLimit));
 
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        long points = cloudjs.getLong("points");
+
+        List<CountDownLatch> countDownLatchList = new ArrayList<>();
 
         //当下一次读取的点数之和将超过pointBytesListLimit 出发一下spark任务
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         int pointAccumulation = 0;
-        for(String lasFilePath:lasFilePathList){
 
+        for(int i=0;i<lasFilePathList.size();i++){
+            String lasFilePath = lasFilePathList.get(i);
             LasFile lasFile = new LasFile(lasFilePath);
             LasFileHeader lasFileHeader = lasFile.getLasFileHeader();
-            pointAccumulation += lasFileHeader.getNumberOfPointRecords();
+            List<LasFilePointData> lasFilePointDataList = lasFile.getLasFilePointDataList();
 
+
+            for(int j=0;j<lasFilePointDataList.size();j++){
+                LasFilePointData lasFilePointData = lasFilePointDataList.get(j);
+                lasFilePointData.pointBytesToByteArray(byteArrayOutputStream);
+                pointAccumulation += lasFilePointData.getNumberOfPointRecords();
+
+
+                if (pointAccumulation>pointBatchLimit||((i==lasFilePathList.size()-1)&&(j==lasFilePointDataList.size()-1))){
+                    //如果缓冲区点数超过BatchLimit，则触发一次spark任务
+
+                    //生成中间文件，供spark任务使用
+                    long time = System.currentTimeMillis();
+                    String tmpFileName = createTmpFile(byteArrayOutputStream,outputDirPath);
+                    logger.info("----------------------------------------------------生成中间文件耗时："+(System.currentTimeMillis()-time));
+                    CountDownLatch countDownLatch = new CountDownLatch(1);
+                    countDownLatchList.add(countDownLatch);
+                    final int sparkTaskIndex = countDownLatchList.size();
+                    executorService.execute(()->{
+                        logger.info("-------------------------------------------------------------提交spark任务"+sparkTaskIndex);
+                        doSparkTask(sc,tmpFileName ,cloudjs,outputDirPath);
+                        countDownLatch.countDown();
+                        logger.info("-------------------------------------------------------------spark任务"+sparkTaskIndex+"结束");
+                    });
+                    byteArrayOutputStream = new ByteArrayOutputStream();
+                    pointAccumulation =0;
+                }
+
+            }
+
+            /*
             if(pointAccumulation>pointBatchLimit){
                 //如果缓冲区点数超过BatchLimit，则触发一次spark任务
 
@@ -222,23 +275,17 @@ public class LasSplit {
 
             }else {
                 //如果为超过BatchLimt，则继续写入缓冲区
-                lasFile.getLasFilePointData().pointBytesToByteArray(byteArrayOutputStream);
+                //lasFile.getLasFilePointData().pointBytesToByteArray(byteArrayOutputStream); !!!!!!!!!!!!!
             }
+
+             */
 
         }
 
-        //将缓冲区种剩余的点生成中间文件，并触发spark任务
-        String tmpFileName = createTmpFile(byteArrayOutputStream,outputDirPath);
-        executorService.execute(()->{
-            logger.info("-------------------------------------------------------------提交spark任务，处理中间文件："+tmpFileName);
-            doSparkTask(sc,tmpFileName ,cloudjs,outputDirPath);
-            countDownLatch.countDown();
-            logger.info("-------------------------------------------------------------spark任务结束，处理中间文件："+tmpFileName);
-        });
-
 
         try {
-            countDownLatch.await();
+            for(CountDownLatch countDownLatch1 :countDownLatchList)
+                countDownLatch1.await();
             logger.info("-------------------------------------------------------------全部spark任务完成");
         }catch (Exception e){
             e.printStackTrace();
@@ -247,6 +294,7 @@ public class LasSplit {
         //关闭 JavaSparkContext
         sc.close();
     }
+
 
 
     /**
@@ -287,7 +335,7 @@ public class LasSplit {
                 boundingBoxJson.getDoubleValue("lx"),boundingBoxJson.getDoubleValue("ly"),boundingBoxJson.getDoubleValue("lz")};
         double[] scale = (double[])cloudjs.get("scale");
 
-        JavaRDD<byte[]>pointBytesRDD = sc.binaryRecords(outputDirPath+File.separator+tmpFileName,27).repartition(SPARK_DEFAULT_PARALLELISM);
+        JavaRDD<byte[]>pointBytesRDD = sc.binaryRecords(outputDirPath+File.separator+tmpFileName,27);
 
         pointBytesRDD.mapToPair((byte[] pointBytes)->{
 
@@ -328,16 +376,9 @@ public class LasSplit {
             pointNewBytesArray[coordinateBytesLength+3] = newClodBytes[0];
             pointNewBytesArray[coordinateBytesLength+4] = newClodBytes[1];
 
-             /*
-            String[] strings = new String[]{"r","r1","r2","r3","r4","r5","r6"};
-            String nodeKey = strings[(int)(Math.random()*7)];
-
-              */
-
             return new Tuple2<String,byte[]>(nodeKey,pointNewBytesArray);
 
-
-        }).combineByKey((byte[] pointBytesArray)->{
+        }) .combineByKey((byte[] pointBytesArray)->{
             List<byte[]> list = new ArrayList<>();
             list.add(pointBytesArray);
             return list;
@@ -356,9 +397,88 @@ public class LasSplit {
                 byte[] pointBytesArray = iterator.next();
                 byteOutputStream.write(pointBytesArray);
             }
+            //分布式锁
+            DistributedRedisLock.lock(nodeKey);
+
             IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
+            DistributedRedisLock.unlock(nodeKey);
             byteOutputStream.close();
         });
+
+                /*.combineByKey((byte[] pointBytesArray)->{
+            return pointBytesArray;
+        },(byte[] pointBytesArray,byte[] pointBytesArray1)->{
+            return ArrayUtils.addAll(pointBytesArray,pointBytesArray1);
+        },(byte[] pointBytesArray,byte[] pointBytesArray1)->{
+            return ArrayUtils.addAll(pointBytesArray,pointBytesArray1);
+        }).foreach((Tuple2<String,byte[]> tuple2)->{
+            String nodeKey = tuple2._1;
+            byte[] pointBytesArray  = tuple2._2;
+
+            //分布式锁
+            DistributedRedisLock.lock(nodeKey);
+
+            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",pointBytesArray,true);
+            DistributedRedisLock.unlock(nodeKey);
+
+        });
+
+                 */
+                /*
+                .mapPartitionsToPair((Iterator<Tuple2<String,byte[]>> iterator)->{
+
+            HashMap<String,Tuple2<String,ByteArrayOutputStream>> map = new HashMap<>();
+            while (iterator.hasNext()){
+                Tuple2<String,byte[]> tuple2 = iterator.next();
+                if(!map.containsKey(tuple2._1))
+                    map.put(tuple2._1,new Tuple2<String,ByteArrayOutputStream>(tuple2._1,new ByteArrayOutputStream()));
+                map.get(tuple2._1)._2.write(tuple2._2);
+            }
+            return map.values().iterator();
+
+        }).foreach((Tuple2<String,ByteArrayOutputStream> tuple2)->{
+            String nodeKey = tuple2._1;
+            ByteArrayOutputStream byteOutputStream = tuple2._2;
+
+            //分布式锁
+            DistributedRedisLock.lock(nodeKey);
+            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
+            DistributedRedisLock.unlock(nodeKey);
+            byteOutputStream.close();
+        });
+
+
+                 */
+                 /*
+
+                .combineByKey((byte[] pointBytesArray)->{
+            List<byte[]> list = new ArrayList<>();
+            list.add(pointBytesArray);
+            return list;
+        },(List<byte[]> list1,byte[] pointBytesArray)->{
+            list1.add(pointBytesArray);
+            return list1;
+        },(List<byte[]> list1,List<byte[]> list2)->{
+            list1.addAll(list2);
+            return list1;
+        }).foreach((Tuple2<String,List<byte[]>> tuple2)->{
+            String nodeKey = tuple2._1;
+            Iterator<byte[]> iterator = tuple2._2.iterator();
+
+            ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+            while (iterator.hasNext()){
+                byte[] pointBytesArray = iterator.next();
+                byteOutputStream.write(pointBytesArray);
+            }
+            //分布式锁
+            DistributedRedisLock.lock(nodeKey);
+
+            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
+            DistributedRedisLock.unlock(nodeKey);
+            byteOutputStream.close();
+        });
+
+                  */
 
         try {
             HDFSUtils.deleteFile(outputDirPath+File.separator+tmpFileName);
@@ -378,6 +498,7 @@ public class LasSplit {
      * @param pointBytesList 点字节数组，用于spark任务的源数据
      * @param cloudjs 点云的信息，包括包围盒，总点数，用于广播变量（rdd转换使用）
      * @param outputDirPath 输出目录
+     *
      */
     public static void doSparkTask(JavaSparkContext sc,List<byte[]> pointBytesList,JSONObject cloudjs,String outputDirPath){
 
@@ -433,14 +554,6 @@ public class LasSplit {
             pointNewByes[12] = r;
             pointNewByes[13] = g;
             pointNewByes[14] = b;
-
-             /*
-            String[] strings = new String[]{"r","r1","r2","r3","r4","r5","r6"};
-            String nodeKey = strings[(int)(Math.random()*7)];
-
-              */
-
-
 
             return new Tuple2<String,byte[]>(nodeKey,pointByes);
 

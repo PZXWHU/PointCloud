@@ -2,6 +2,7 @@ package com.pzx.las;
 
 import com.pzx.IOUtils;
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.log4j.Logger;
 
 import java.io.*;
 import java.lang.reflect.Array;
@@ -11,17 +12,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class LasFilePointData {
 
+    private Logger logger = Logger.getLogger(LasFilePointData.class);
     private MappedByteBuffer filePointDataBuffer;
 
     private byte pointDataFormatID;
     private int pointDataRecordLength;
+
+
     private long numberOfPointRecords;
     private double[] scale;
     private double[] offset;
@@ -44,13 +45,13 @@ public class LasFilePointData {
      */
     public List<byte[]> getPointBytesList(){
 
-        //List<byte[]> pointBytesList = new ArrayList<byte[]>((int)numberOfPointRecords);
+
         byte[][] pointBytesArray = new byte[(int)numberOfPointRecords][];
         int index=0;
         while (filePointDataBuffer.hasRemaining()){
-            byte[] bytes = new byte[pointDataRecordLength];
-            filePointDataBuffer.get(bytes);
-            pointBytesArray[index] =  resolvePointByte(bytes);
+            //byte[] bytes = new byte[pointDataRecordLength];
+            //filePointDataBuffer.get(bytes);
+            pointBytesArray[index] =  resolvePointByte(readPointBytes());
             index++;
         }
         filePointDataBuffer.position(0);
@@ -64,20 +65,14 @@ public class LasFilePointData {
      */
     public void pointBytesToByteArray(ByteArrayOutputStream byteArrayOutputStream) {
 
-        /*
-        if(!Files.exists(Paths.get(filePath)))
-            Files.createFile(Paths.get(filePath));
-
-        DataOutputStream outputStream = new DataOutputStream(new FileOutputStream(filePath,true));
-
-         */
         try {
-            byte[] bytes = new byte[pointDataRecordLength];
+            //byte[] bytes = new byte[pointDataRecordLength];
             long time = System.currentTimeMillis();
             while (filePointDataBuffer.hasRemaining()){
-                filePointDataBuffer.get(bytes);
-                byteArrayOutputStream.write(resolvePointByte(bytes));
+                //filePointDataBuffer.get(bytes);
+                byteArrayOutputStream.write(resolvePointByte(readPointBytes()));
             }
+            logger.info("-----------------------------写入缓冲区耗时"+(System.currentTimeMillis()-time));
             filePointDataBuffer.position(0);
 
         }catch (Exception e){
@@ -86,7 +81,8 @@ public class LasFilePointData {
     }
 
 
-    public String resolvePointByteToString(byte[] pointBytes){
+    /*
+    private String resolvePointByteToString(byte[] pointBytes){
         switch (pointDataFormatID){
             case 0:
                 return resolvePointByteToStringInFormat0(pointBytes);
@@ -106,7 +102,7 @@ public class LasFilePointData {
     }
 
 
-    public String resolvePointByteToStringInFormat0(byte[] pointBytes){
+    private String resolvePointByteToStringInFormat0(byte[] pointBytes){
         double x = LittleEndianUtils.bytesToInteger(pointBytes[0],pointBytes[1],pointBytes[2],pointBytes[3])*scale[0]+offset[0];
         double y = LittleEndianUtils.bytesToInteger(pointBytes[4],pointBytes[5],pointBytes[6],pointBytes[7])*scale[1]+offset[1];
         double z = LittleEndianUtils.bytesToInteger(pointBytes[8],pointBytes[9],pointBytes[10],pointBytes[11])*scale[2]+offset[2];
@@ -119,17 +115,19 @@ public class LasFilePointData {
     }
 
 
-    public String resolvePointByteToStringInFormat1(byte[] pointBytes){
+    private String resolvePointByteToStringInFormat1(byte[] pointBytes){
         return resolvePointByteToStringInFormat0(pointBytes);
     }
 
+
+     */
 
     /**
      *从las文件中的点字节数组中，转换得到我们需要的字节数组XYZRGB（27个字节）
      * @param pointBytes 储存一个点的所有字节
      * @return 这个点的xyz坐标和rgb组成的字节数组，
      */
-    public byte[] resolvePointByte(byte[] pointBytes){
+    private byte[] resolvePointByte(byte[] pointBytes){
         switch (pointDataFormatID){
             case 0:
                 return resolvePointByteInFormat0(pointBytes);
@@ -191,18 +189,47 @@ public class LasFilePointData {
     }
 
 
-    public byte[] readPointBytes(){
+    private byte[] readPointBytes(){
         return readBytes(pointDataRecordLength);
     }
 
 
-    public byte[] readBytes(int size){
+    private byte[] readBytes(int size){
         byte[] bytes = new byte[size];
         filePointDataBuffer.get(bytes);
         return bytes;
     }
 
+    public Map<String,Double> getPoint(){
+        byte[] resolvedPointBytes = resolvePointByte(readPointBytes());
+        Map<String,Double> pointMap = new HashMap<>();
+        pointMap.put("x",LittleEndianUtils.bytesToDouble(resolvedPointBytes[0],resolvedPointBytes[1],resolvedPointBytes[2],resolvedPointBytes[3],
+                resolvedPointBytes[4],resolvedPointBytes[5],resolvedPointBytes[6],resolvedPointBytes[7]));
+        pointMap.put("y",LittleEndianUtils.bytesToDouble(resolvedPointBytes[8],resolvedPointBytes[9],resolvedPointBytes[10],resolvedPointBytes[11],
+                resolvedPointBytes[12],resolvedPointBytes[13],resolvedPointBytes[14],resolvedPointBytes[15]));
+        pointMap.put("z",LittleEndianUtils.bytesToDouble(resolvedPointBytes[16],resolvedPointBytes[17],resolvedPointBytes[18],resolvedPointBytes[19],
+                resolvedPointBytes[20],resolvedPointBytes[21],resolvedPointBytes[22],resolvedPointBytes[23]));
+        pointMap.put("r",(double) resolvedPointBytes[24]);
+        pointMap.put("g",(double) resolvedPointBytes[25]);
+        pointMap.put("b",(double) resolvedPointBytes[26]);
+
+        return pointMap;
+    }
 
 
+    public long getNumberOfPointRecords() {
+        return numberOfPointRecords;
+    }
 
+    @Override
+    public String toString() {
+        return "LasFilePointData{" +
+                "filePointDataBuffer=" + filePointDataBuffer +
+                ", pointDataFormatID=" + pointDataFormatID +
+                ", pointDataRecordLength=" + pointDataRecordLength +
+                ", numberOfPointRecords=" + numberOfPointRecords +
+                ", scale=" + Arrays.toString(scale) +
+                ", offset=" + Arrays.toString(offset) +
+                '}';
+    }
 }

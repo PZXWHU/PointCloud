@@ -1,3 +1,5 @@
+import com.pzx.LasSplit;
+import com.pzx.distributedLock.DistributedRedisLock;
 import org.apache.log4j.Logger;
 import org.apache.spark.Partitioner;
 import org.apache.spark.SparkConf;
@@ -62,9 +64,14 @@ public class Test {
          */
 
         //Byte[] bytes = new Byte[1024];
-        int x = 5;
+        InputStream sparkPropertiesInputStream = Test.class.getClassLoader().getResourceAsStream("spark.conf");
+        Properties sparkProperties = new Properties();
+        sparkProperties.load(sparkPropertiesInputStream);
 
-        System.out.println((double) 5/2);
+
+        for(String sparkPropertyNames:sparkProperties.stringPropertyNames()){
+            System.out.println(sparkPropertyNames);
+        }
 
     }
 

@@ -59,10 +59,13 @@ public class IOUtils {
                 FileSystem fileSystem = HDFSUtils.getFileSystem();
 
                 if (append&&fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))){
+                    //追加模式且hdfs已经存在此文件
                     dataOutputStream = fileSystem.append(new org.apache.hadoop.fs.Path(outputFilePath));
                 }else if(!fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))) {
+                    //hdfs不存在此文件
                     dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath));
                 }else {
+                    //hdfs不存在此文件且追加模式
                     dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath),true);
                 }
 

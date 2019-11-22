@@ -7,6 +7,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -16,16 +17,56 @@ public class LasFile {
 
     //private MappedByteBuffer fileBuffer;
     private LasFileHeader lasFileHeader;
-    private LasFilePointData lasFilePointData;
+    private List<LasFilePointData> lasFilePointDataList = new ArrayList<>();
 
     public String version;
     private byte pointDataFormatID;
 
 
+    @Override
+    public String toString() {
+        return "LasFile{" +
+                "lasFileHeader=" + lasFileHeader +
+                ", lasFilePointDataList=" + lasFilePointDataList +
+                ", version='" + version + '\'' +
+                ", pointDataFormatID=" + pointDataFormatID +
+                '}';
+    }
+
     public LasFile(String filePath){
 
         try (FileChannel fileChannel = FileChannel.open(Paths.get(filePath))){
 
+
+            MappedByteBuffer tmpBuffer =  fileChannel.map(FileChannel.MapMode.READ_ONLY,0,100);
+            //读取数据
+            version = tmpBuffer.get(24)+"."+tmpBuffer.get(25);
+
+            int headerSize = LittleEndianUtils.bytesToUnsignedShort(tmpBuffer.get(94),tmpBuffer.get(95));
+            MappedByteBuffer fileHeaderBuffer =  fileChannel.map(FileChannel.MapMode.READ_ONLY,0,headerSize);
+            lasFileHeader = new LasFileHeader(fileHeaderBuffer,version);
+
+            long offsetToPointData = lasFileHeader.getOffsetToPointData();
+            long numberOfPointRecords = lasFileHeader.getNumberOfPointRecords();
+            pointDataFormatID = lasFileHeader.getPointDataFormatID();
+            int pointDataRecordLength = lasFileHeader.getPointDataRecordLength();
+
+            long pointDataBytesCount = numberOfPointRecords*pointDataRecordLength;
+            int pointBytesPerBuffer = (Integer.MAX_VALUE/pointDataRecordLength)*pointDataRecordLength;
+            while (pointDataBytesCount>0){
+                long pointBytesThisBuffer = Math.min(pointBytesPerBuffer,pointDataBytesCount);
+
+                MappedByteBuffer filePointDataBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,offsetToPointData,pointBytesThisBuffer);
+                LasFilePointData lasFilePointData = new LasFilePointData(filePointDataBuffer,pointDataFormatID,pointDataRecordLength,pointBytesThisBuffer/pointDataRecordLength,lasFileHeader.getScale(),lasFileHeader.getOffset());
+                lasFilePointDataList.add(lasFilePointData);
+
+                pointDataBytesCount -=pointBytesPerBuffer;
+                offsetToPointData += pointBytesPerBuffer;
+            }
+
+
+
+            /*
             long length = fileChannel.size();
             //内存映射的文件不能超过2G
             if(length>Integer.MAX_VALUE){
@@ -52,6 +93,8 @@ public class LasFile {
             lasFilePointData = new LasFilePointData(filePointDataBuffer,pointDataFormatID,pointDataRecordLength,numberOfPointRecords,lasFileHeader.getScale(),lasFileHeader.getOffset());
 
 
+             */
+
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -62,8 +105,8 @@ public class LasFile {
         return lasFileHeader;
     }
 
-    public LasFilePointData getLasFilePointData() {
-        return lasFilePointData;
+    public List<LasFilePointData> getLasFilePointDataList() {
+        return lasFilePointDataList;
     }
 
     public String getVersion() {
@@ -76,27 +119,11 @@ public class LasFile {
 
     public static void main(String[] args) throws IOException{
         long time = System.currentTimeMillis();
-        LasFile lasFile = new LasFile("C:\\Users\\PZX\\Desktop\\新建文件夹\\spirswfst_east.las");
+        LasFile lasFile = new LasFile("D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\hn3\\C_51DN2.LAZ");
         System.out.println(System.currentTimeMillis()-time);
-        System.out.println(lasFile.getLasFileHeader());
-
-        /*
-        time = System.currentTimeMillis();
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        lasFile.getLasFilePointData().pointBytesToByteArray(byteArrayOutputStream);
-        System.out.println(System.currentTimeMillis()-time);
-        FileOutputStream fileWriter = new FileOutputStream("C:\\Users\\PZX\\Desktop\\新建文件夹\\tmp.tmp");
-        fileWriter.write(byteArrayOutputStream.toByteArray());
-        fileWriter.close();
-        System.out.println(System.currentTimeMillis()-time);
+        System.out.println(lasFile.getLasFileHeader().getNumberOfPointRecords());
 
 
-
-        time = System.currentTimeMillis();
-        List<byte[]> list = lasFile.getLasFilePointData().getPointBytesList();
-        System.out.println(System.currentTimeMillis()-time);
-
-         */
     }
 
 
