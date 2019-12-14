@@ -1,10 +1,14 @@
 package com.pzx;
 
 
+import org.apache.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class SplitUtils {
+
+    private static Logger logger = Logger.getLogger(SparkUtils.class);
 
     public static double getClod(long pointNum,long pointNumPerNode,int dimension){
 
@@ -22,11 +26,27 @@ public class SplitUtils {
         return clod;
     }
 
+    private static double getTheLevelClod(int maxLevel,int dimension,int level){
+        double x1 = (Math.exp(level*dimension*Math.log(2))-1)/(Math.pow(2,dimension*maxLevel+dimension)-1);
+        double x2 = (Math.exp((level+1)*dimension*Math.log(2))-1)/(Math.pow(2,dimension*maxLevel+dimension)-1);
+        double random = Math.random()*(x2-x1)+x1;
+
+        double clod =  Math.log((Math.pow(2,dimension*maxLevel+dimension)-1)*random+1)/(dimension*Math.log(2));
+        return clod;
+    }
 
 
     public static int getMaxLevel(long pointNum,long pointNumPerNode,int dimension){
         long blockNum = pointNum/pointNumPerNode;
-        int maxLevel = (int)Math.ceil(Math.log(blockNum)/Math.log(Math.pow(2,dimension)));
+        logger.info("-------------------------最大层级："+(Math.log(blockNum)/Math.log(Math.pow(2,dimension))));
+        double doubleLevel = Math.log(blockNum)/Math.log(Math.pow(2,dimension));
+        int maxLevel;
+        //如果小数点后超过0.4 则向上取整，否则向下取整
+        if(doubleLevel>=((int)doubleLevel+0.4)){
+            maxLevel = (int)Math.ceil(doubleLevel);
+        }else {
+            maxLevel = (int)Math.round(doubleLevel);
+        }
         return maxLevel;
     }
 
@@ -153,5 +173,9 @@ public class SplitUtils {
         return zigZagBytes;
     }
 
+
+    public static void main(String[] args) {
+        System.out.println(getTheLevelClod(8,2,0));
+    }
 
 }

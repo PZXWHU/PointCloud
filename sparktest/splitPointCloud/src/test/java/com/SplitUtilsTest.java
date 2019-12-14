@@ -37,7 +37,7 @@ public class SplitUtilsTest {
     @Test
     public void getMaxLevel() {
 
-        int maxLevel = SplitUtils.getMaxLevel(3800953,5000l,3);
+        int maxLevel = SplitUtils.getMaxLevel(97000000,30000l,2);
         System.out.println(maxLevel);
 
     }

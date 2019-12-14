@@ -13,6 +13,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
+import sun.reflect.generics.tree.Tree;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
@@ -28,7 +30,7 @@ public class LasSplit {
     private static Logger logger = Logger.getLogger(LasSplit.class);
 
     private static long pointBatchLimit = 30000000;
-    private static int pointNumPerNode = 2000;
+    private static int pointNumPerNode = 30000;
     private static int dimension = 3;
 
 
@@ -52,6 +54,8 @@ public class LasSplit {
 
         splitPointCloud(lasFilePathList,cloudjs,outputDirPath);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
+
+
 
         List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
 
@@ -181,6 +185,7 @@ public class LasSplit {
 
          */
 
+
         ExecutorService executorService = Executors.newCachedThreadPool();
         long points = cloudjs.getLong("points");
 
@@ -224,28 +229,6 @@ public class LasSplit {
                 }
 
             }
-
-            /*
-            if(pointAccumulation>pointBatchLimit){
-                //如果缓冲区点数超过BatchLimit，则触发一次spark任务
-
-                //生成中间文件，供spark任务使用
-                String tmpFileName = createTmpFile(byteArrayOutputStream,outputDirPath);
-                executorService.execute(()->{
-                    logger.info("-------------------------------------------------------------提交spark任务，处理中间文件："+tmpFileName);
-                    doSparkTask(sc,tmpFileName ,cloudjs,outputDirPath);
-                    countDownLatch.countDown();
-                    logger.info("-------------------------------------------------------------spark任务结束，处理中间文件："+tmpFileName);
-                });
-                byteArrayOutputStream = new ByteArrayOutputStream();
-                pointAccumulation =0;
-
-            }else {
-                //如果为超过BatchLimt，则继续写入缓冲区
-                //lasFile.getLasFilePointData().pointBytesToByteArray(byteArrayOutputStream); !!!!!!!!!!!!!
-            }
-
-             */
 
         }
 
@@ -296,11 +279,28 @@ public class LasSplit {
     public static void doSparkTask(JavaSparkContext sc,String tmpFileName,JSONObject cloudjs,String outputDirPath){
 
         //广播变量
-        int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,dimension);
         JSONObject boundingBoxJson = cloudjs.getJSONObject("boundingBox");
         double[] boundingBox = new double[]{boundingBoxJson.getDoubleValue("ux"),boundingBoxJson.getDoubleValue("uy"),boundingBoxJson.getDoubleValue("uz"),
                 boundingBoxJson.getDoubleValue("lx"),boundingBoxJson.getDoubleValue("ly"),boundingBoxJson.getDoubleValue("lz")};
         double[] scale = (double[])cloudjs.get("scale");
+
+
+
+        //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
+        JSONObject tightBoundingBoxJson = cloudjs.getJSONObject("tightBoundingBox");
+        int dimension1 = dimension;
+        if((tightBoundingBoxJson.getDoubleValue("ux")-tightBoundingBoxJson.getDoubleValue("lx"))<(boundingBox[0]-boundingBox[3])/10.0||
+                (tightBoundingBoxJson.getDoubleValue("uy")-tightBoundingBoxJson.getDoubleValue("ly"))<(boundingBox[0]-boundingBox[3])/10.0||
+                (tightBoundingBoxJson.getDoubleValue("uz")-tightBoundingBoxJson.getDoubleValue("lz"))<(boundingBox[0]-boundingBox[3])/10.0){
+            dimension1 = 2;
+
+        }
+        final int splitDimension = Math.min(dimension,dimension1);
+        logger.info("----------------------------------------此次分片的维度为："+splitDimension);
+        int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,splitDimension);
+        logger.info("----------------------------------------此次分片的最大层级为为："+maxLevel);
+
+
 
         JavaRDD<byte[]>pointBytesRDD = sc.binaryRecords(outputDirPath+File.separator+tmpFileName,27);
 
@@ -313,7 +313,7 @@ public class LasSplit {
             byte g = pointBytes[25];
             byte b = pointBytes[26];
 
-            double clod = SplitUtils.getClod(maxLevel,dimension);
+            double clod = SplitUtils.getClod(maxLevel,splitDimension);
             String nodeKey = SplitUtils.getOctreeNodeName(x,y,z,boundingBox,clod);
             double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey,boundingBox);
             int newX = (int)((x-xyzOffset[0])/scale[0]);
@@ -325,14 +325,14 @@ public class LasSplit {
             byte[] xBytes = LittleEndianUtils.integerToBytes(newX);
             byte[] yBytes = LittleEndianUtils.integerToBytes(newY);
             byte[] zBytes = LittleEndianUtils.integerToBytes(newZ);
-
              */
+
             byte[] coordinateBytes = SplitUtils.pointInZigZagFormat(new int[]{newX,newY,newZ});
             int coordinateBytesLength = coordinateBytes.length;
 
-            byte[] newClodBytes = LittleEndianUtils.shortToBytes((short)(clod/0.01));
+            //byte[] newClodBytes = LittleEndianUtils.shortToBytes((short)(clod/0.01));
 
-            byte[] pointNewBytesArray = new byte[coordinateBytes.length+5];
+            byte[] pointNewBytesArray = new byte[coordinateBytes.length+3];
             for(int i=0;i<coordinateBytesLength;i++){
                 pointNewBytesArray[i] = coordinateBytes[i];
             }
@@ -340,8 +340,8 @@ public class LasSplit {
             pointNewBytesArray[coordinateBytesLength] = r;
             pointNewBytesArray[coordinateBytesLength+1] = g;
             pointNewBytesArray[coordinateBytesLength+2] = b;
-            pointNewBytesArray[coordinateBytesLength+3] = newClodBytes[0];
-            pointNewBytesArray[coordinateBytesLength+4] = newClodBytes[1];
+            //pointNewBytesArray[coordinateBytesLength+3] = newClodBytes[0];
+            //pointNewBytesArray[coordinateBytesLength+4] = newClodBytes[1];
 
             return new Tuple2<String,byte[]>(nodeKey,pointNewBytesArray);
 
@@ -372,80 +372,6 @@ public class LasSplit {
             byteOutputStream.close();
         });
 
-                /*.combineByKey((byte[] pointBytesArray)->{
-            return pointBytesArray;
-        },(byte[] pointBytesArray,byte[] pointBytesArray1)->{
-            return ArrayUtils.addAll(pointBytesArray,pointBytesArray1);
-        },(byte[] pointBytesArray,byte[] pointBytesArray1)->{
-            return ArrayUtils.addAll(pointBytesArray,pointBytesArray1);
-        }).foreach((Tuple2<String,byte[]> tuple2)->{
-            String nodeKey = tuple2._1;
-            byte[] pointBytesArray  = tuple2._2;
-
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
-
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",pointBytesArray,true);
-            DistributedRedisLock.unlock(nodeKey);
-
-        });
-
-                 */
-                /*
-                .mapPartitionsToPair((Iterator<Tuple2<String,byte[]>> iterator)->{
-
-            HashMap<String,Tuple2<String,ByteArrayOutputStream>> map = new HashMap<>();
-            while (iterator.hasNext()){
-                Tuple2<String,byte[]> tuple2 = iterator.next();
-                if(!map.containsKey(tuple2._1))
-                    map.put(tuple2._1,new Tuple2<String,ByteArrayOutputStream>(tuple2._1,new ByteArrayOutputStream()));
-                map.get(tuple2._1)._2.write(tuple2._2);
-            }
-            return map.values().iterator();
-
-        }).foreach((Tuple2<String,ByteArrayOutputStream> tuple2)->{
-            String nodeKey = tuple2._1;
-            ByteArrayOutputStream byteOutputStream = tuple2._2;
-
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
-            DistributedRedisLock.unlock(nodeKey);
-            byteOutputStream.close();
-        });
-
-
-                 */
-                 /*
-
-                .combineByKey((byte[] pointBytesArray)->{
-            List<byte[]> list = new ArrayList<>();
-            list.add(pointBytesArray);
-            return list;
-        },(List<byte[]> list1,byte[] pointBytesArray)->{
-            list1.add(pointBytesArray);
-            return list1;
-        },(List<byte[]> list1,List<byte[]> list2)->{
-            list1.addAll(list2);
-            return list1;
-        }).foreach((Tuple2<String,List<byte[]>> tuple2)->{
-            String nodeKey = tuple2._1;
-            Iterator<byte[]> iterator = tuple2._2.iterator();
-
-            ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-            while (iterator.hasNext()){
-                byte[] pointBytesArray = iterator.next();
-                byteOutputStream.write(pointBytesArray);
-            }
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
-
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
-            DistributedRedisLock.unlock(nodeKey);
-            byteOutputStream.close();
-        });
-
-                  */
 
         try {
             HDFSUtils.deleteFile(outputDirPath+File.separator+tmpFileName);
@@ -467,6 +393,7 @@ public class LasSplit {
      * @param outputDirPath 输出目录
      *
      */
+    /*
     public static void doSparkTask(JavaSparkContext sc,List<byte[]> pointBytesList,JSONObject cloudjs,String outputDirPath){
 
         //广播变量
@@ -551,6 +478,9 @@ public class LasSplit {
 
     }
 
+     */
+
+
 
     /**
      * 利用输出目录中所有的bin文件的文件名（即nodeKey），生成索引文件
@@ -560,6 +490,7 @@ public class LasSplit {
     public static void createHrcFile(List<String> binFilePathList,String outputDirPath){
 
         List<String> nodeKeyList = binFilePathList.stream().map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1,binFilePath.lastIndexOf("."))).collect(Collectors.toList());
+        HashSet<String> nodeKeySet = (HashSet<String>) nodeKeyList.stream().collect(Collectors.toSet());
 
         nodeKeyList.sort(new Comparator<String>() {
             @Override
@@ -573,27 +504,26 @@ public class LasSplit {
                 }
             }
         });
+        byte[] hrcBytes = new byte[nodeKeyList.size()];
 
-        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-        for(String nodeKey:nodeKeyList ){
+        for(int i=0;i<nodeKeyList.size();i++){
+            String nodeKey = nodeKeyList.get(i);
             byte mask = 0;
-            for(int i=0;i<8;i++){
-                if(nodeKeyList.contains(nodeKey+i))
-                    mask = (byte) (mask|1<<i);
+
+            for(int j=0;j<8;j++){
+                if(nodeKeySet.contains(nodeKey+j))
+                    mask = (byte) (mask|1<<j);
             }
-            byteOutputStream.write(mask);
+            hrcBytes[i] = mask;
         }
 
         try {
-            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",byteOutputStream.toByteArray(),false);
-            byteOutputStream.close();
+            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
         }catch (Exception e){
             e.printStackTrace();
         }
 
-
     }
-
 
 
 
