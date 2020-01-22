@@ -58,7 +58,7 @@ def clod(random,dimension,maxlevel):
 
 if __name__ == '__main__':
     d = 1
-    r = 10
+    r = 100
     L =10
     n = (L+1)*(r+1) - 1  # (0,1,2,3...)
     q = math.pow(math.pow(2,d),1.0/(r+1))
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     plt.grid(True, linestyle = '--',axis='y')
     plt.xticks(range(0,L+2),range(0,L+2))
     #plt.plot(x_data,y_data,c = 'r')
-    #plt.plot([x[0] for x in data_list],[f_fit(x[0],p_first,0,math.pow(q,1.0/bar_width)) for x in data_list],c = 'r')
+    plt.plot([x[0] for x in data_list],[f_fit(x[0],p_first,0,math.pow(q,1.0/bar_width)) for x in data_list],c = 'r')
     plt.xlabel('层级')
     plt.ylabel('概率')
     plt.show()
@@ -87,10 +87,12 @@ if __name__ == '__main__':
     plt.grid(True, linestyle = '--',axis='y')
     plt.xticks(range(0,L+2),range(0,L+2))
     #plt.plot([x[0] for x in data_list],[f_fit(x[0],p_first*q/(q-1),p_first/(1-q),math.pow(q,1.0/bar_width)) for x in data_list],c = 'r')
+    plt.xlabel('层级')
+    plt.ylabel('累计概率')
     plt.show()
 
     plt.figure(3)
-    plt.barh(x_data,y_accumluate_data,height=bar_width)
+    #plt.barh(x_data,y_accumluate_data,height=bar_width)
     plt.grid(True, linestyle = '--',axis='x')
     plt.yticks(range(0,L+2),range(0,L+2))
     plt.plot(np.arange(0,1,0.01),[clod(rnd,d,L) for rnd in np.arange(0,1,0.01)],c = 'r')
