@@ -52,13 +52,13 @@ public class DataImport
     }
 
 
-    public static void file2HBase(String dataDirStr,Table table)throws IOException {
+    public static void file2HBase(String dataDirStr,Table table)throws Exception {
         List<Put> puts = new ArrayList<>();
 
         List<String> filePathList = IOUtils.listAllFiles(dataDirStr);
 
-        for (String filePath : filePathList) {
-
+        for (int i=0;i<filePathList.size();i++) {
+            String filePath = filePathList.get(i);
             String suffix = filePath.split("\\.")[filePath.split("\\.").length - 1];
             switch (suffix) {
                 case "hrc":
@@ -78,19 +78,14 @@ public class DataImport
             }
 
 
-            if (puts.size() >= 25) {
+            if (puts.size() >= 100||i==filePathList.size()-1) {
                 logger.info("开始插入！");
                 table.put(puts);
                 puts.clear();
                 logger.info("插入完成！");
-
+                Thread.sleep(1000);
             }
         }
-        logger.info("开始插入！");
-        table.put(puts);
-        logger.info("插入完成！");
-
-
 
     }
 
