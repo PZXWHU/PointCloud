@@ -4,14 +4,15 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.filter.CompareFilter;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.RegexStringComparator;
+import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.logging.Logger;
 
 public class HBaseUtils {
@@ -112,7 +113,7 @@ public class HBaseUtils {
     }
 
     public static void deleteTable(String tableName){
-        //init();
+
         TableName tn = TableName.valueOf(tableName);
         try{
             if(admin.tableExists(tn)){
@@ -128,7 +129,7 @@ public class HBaseUtils {
     }
 
     public static void listAllTables(){
-        //init();
+
         try{
             /*
             2.x API
@@ -152,7 +153,7 @@ public class HBaseUtils {
     }
 
     public static void insertRow(String tableName,String rowKey,String colFamily,String col,String val){
-        //init();
+
         try{
             Table table = connection.getTable(TableName.valueOf(tableName));
 
@@ -168,7 +169,7 @@ public class HBaseUtils {
     }
 
     public static  void deleteRow(String tableName,String rowKey,String colFamily,String col){
-        //init();
+
         try{
             Table table = connection.getTable(TableName.valueOf(tableName));
             Delete delete = new Delete(Bytes.toBytes(rowKey));
@@ -181,7 +182,6 @@ public class HBaseUtils {
     }
 
     public static byte[] getData(String tableName,String rowKey,String colFamily,String col){
-        //init();
         try{
 
             Table table = connection.getTable(TableName.valueOf(tableName));
@@ -189,9 +189,7 @@ public class HBaseUtils {
             get.addColumn(Bytes.toBytes(colFamily),Bytes.toBytes(col));
             Result result = table.get(get);
             byte[] bytes = result.getValue(colFamily.getBytes(),col.getBytes());
-            //showCell(result);
             table.close();
-            //log.info("获取数据成功");
             return bytes;
         }catch (Exception e){
             e.printStackTrace();
@@ -230,22 +228,60 @@ public class HBaseUtils {
 
     }
 
-    public static void scan(String tableName){
+
+    public static Map<String, byte[]> scan(String tableName){
+        return scan(tableName,null,null,null,null,null);
+    }
+
+    public static Map<String, byte[]> scan(String tableName, String startRowKey, String stopRowKey, String colFamily, String col, Filter filter){
+        Map<String,byte[]> resultMap = new HashMap<>();
         try {
             Table table = connection.getTable(TableName.valueOf(tableName));
             Scan scan = new Scan();
+            if(startRowKey!=null){
+                scan.withStartRow(Bytes.toBytes(startRowKey));
+            }
+            if(stopRowKey!=null){
+                scan.withStopRow(Bytes.toBytes(stopRowKey));
+            }
+            if(colFamily!=null&&!colFamily.equals("")&&col!=null&&!col.equals("")){
+                scan.addColumn(Bytes.toBytes(colFamily),Bytes.toBytes(col));
+            }
+            if (filter !=null){
+                scan.setFilter(filter);
+            }
             ResultScanner resultScanner = table.getScanner(scan);
             for(Result result:resultScanner){
-                System.out.println(new String(result.getRow()));
+                //String rowkey = Bytes.toString(result.getRow());
+                //byte[] value = result.getValue(Bytes.toBytes(colFamily),Bytes.toBytes(col));
+                List<Cell> cells = result.listCells();
+                for(Cell cell : cells){
 
+                    String cellRowkey = Bytes.toString(CellUtil.cloneRow(cell));
+                    String cellColFamily = Bytes.toString(CellUtil.cloneFamily(cell));
+                    String cellCol = Bytes.toString(CellUtil.cloneQualifier(cell));
+                    byte[] cellValues = CellUtil.cloneValue(cell);
+                    resultMap.put(cellRowkey+"|"+cellColFamily+"|"+cellCol,cellValues);
+                }
             }
 
         }catch (IOException e){
             e.printStackTrace();
         }
+        return resultMap;
 
     }
 
+
+    public static Map<String, byte[]> scanWithChildNodeFilter(String tableName,String colFamily, String col, String parentNodeKey, String childNodeFilterStr){
+        String level = parentNodeKey.length() + "";
+        String startRowKey = parentNodeKey;
+        String stopRowKey = parentNodeKey + "8";
+        String filterStr = "^" + startRowKey + "[" + childNodeFilterStr + "]" + "$";
+        Filter filter = new RowFilter(CompareFilter.CompareOp.EQUAL,new RegexStringComparator(filterStr));
+
+        return scan(tableName,startRowKey,stopRowKey,colFamily,col,filter);
+    }
 
 
     public static void loadCoprocessor(String tableName,Class coprocessorClass,String coprocessorPath){
@@ -313,6 +349,15 @@ public class HBaseUtils {
         return initConnection();
     }
 
+    public static void main(String[] args) {
+        long t = System.currentTimeMillis();
+        System.out.println(getData("customdata26Gnoclod","r2","data","bin"));
+        System.out.println("耗时："+(System.currentTimeMillis()-t));
+        Map<String,byte[]> result = scanWithChildNodeFilter("customdata26Gnoclod","data","bin","r","12345");
+        for(String key : result.keySet())
+            System.out.println(key);
+        System.out.println("耗时："+(System.currentTimeMillis()-t));
+    }
 
 
 }
