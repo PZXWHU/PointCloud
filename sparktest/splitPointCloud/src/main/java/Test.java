@@ -13,6 +13,7 @@ import scala.Tuple2;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 public class Test {
@@ -22,6 +23,7 @@ public class Test {
     public static void main(String[] args) throws Exception {
 
 
+        /*
         ServerSocket server = new ServerSocket(8888);
         Socket socket = server.accept();
 
@@ -48,8 +50,10 @@ public class Test {
         server.close();
 
 
+         */
 
-
+        //byte[] bytes = new byte[Integer.MAX_VALUE-1];
+        ByteBuffer pointBuffer = ByteBuffer.allocate((int)(Integer.MAX_VALUE/1.5));
     }
 
     public static  void bytesReverse(byte[] bytes){

@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 
 import java.io.*;
 import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -42,7 +43,7 @@ public class LasFilePointData {
     /**
      * 将点数据写到内存List中
      * @return
-     */
+
     public List<byte[]> getPointBytesList(){
 
 
@@ -57,20 +58,20 @@ public class LasFilePointData {
         filePointDataBuffer.position(0);
         return Arrays.asList(pointBytesArray);
     }
-
+    */
 
     /**
      * 将点数据写入缓冲区
-     * @param byteArrayOutputStream
+     * @param pointBuffer
      */
-    public void pointBytesToByteArray(ByteArrayOutputStream byteArrayOutputStream) {
+    public void pointBytesToByteBuffer(ByteBuffer pointBuffer) {
 
         try {
             //byte[] bytes = new byte[pointDataRecordLength];
             long time = System.currentTimeMillis();
             while (filePointDataBuffer.hasRemaining()){
                 //filePointDataBuffer.get(bytes);
-                byteArrayOutputStream.write(resolvePointByte(readPointBytes()));
+                pointBuffer.put(resolvePointByte(readPointBytes()));
             }
             logger.info("-----------------------------写入缓冲区耗时"+(System.currentTimeMillis()-time));
             filePointDataBuffer.position(0);
@@ -81,46 +82,7 @@ public class LasFilePointData {
     }
 
 
-    /*
-    private String resolvePointByteToString(byte[] pointBytes){
-        switch (pointDataFormatID){
-            case 0:
-                return resolvePointByteToStringInFormat0(pointBytes);
-            case 1:
-                return resolvePointByteToStringInFormat1(pointBytes);
-            case 2:
-                throw new RuntimeException("还没实现此类型点的读取");
-            case 3:
-                throw new RuntimeException("还没实现此类型点的读取");
-            case 4:
-                throw new RuntimeException("还没实现此类型点的读取");
-            case 5:
-                throw new RuntimeException("还没实现此类型点的读取");
-            default:
-                throw new RuntimeException("点类型读取错误");
-        }
-    }
 
-
-    private String resolvePointByteToStringInFormat0(byte[] pointBytes){
-        double x = LittleEndianUtils.bytesToInteger(pointBytes[0],pointBytes[1],pointBytes[2],pointBytes[3])*scale[0]+offset[0];
-        double y = LittleEndianUtils.bytesToInteger(pointBytes[4],pointBytes[5],pointBytes[6],pointBytes[7])*scale[1]+offset[1];
-        double z = LittleEndianUtils.bytesToInteger(pointBytes[8],pointBytes[9],pointBytes[10],pointBytes[11])*scale[2]+offset[2];
-        short r = 0;
-        short g = 0;
-        short b = 0;
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(x).append(",").append(y).append(",").append(z).append(",").append(r).append(",").append(g).append(",").append(b).append("\n");
-        return stringBuilder.toString();
-    }
-
-
-    private String resolvePointByteToStringInFormat1(byte[] pointBytes){
-        return resolvePointByteToStringInFormat0(pointBytes);
-    }
-
-
-     */
 
     /**
      *从las文件中的点字节数组中，转换得到我们需要的字节数组XYZRGB（27个字节）
@@ -186,6 +148,23 @@ public class LasFilePointData {
         bytes[26] = b;
 
         return bytes;
+    }
+
+
+    private byte[] resolvePointByteInFormat2(byte[] pointBytes){
+        return null;
+    }
+
+    private byte[] resolvePointByteInFormat3(byte[] pointBytes){
+        return null;
+    }
+
+    private byte[] resolvePointByteInFormat4(byte[] pointBytes){
+        return null;
+    }
+
+    private byte[] resolvePointByteInFormat5(byte[] pointBytes){
+        return null;
     }
 
 

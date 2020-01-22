@@ -2,27 +2,20 @@ package com.pzx;
 
 import com.alibaba.fastjson.JSONObject;
 import com.pzx.distributedLock.DistributedRedisLock;
-import com.pzx.distributedLock.RedissonManager;
 import com.pzx.las.LasFile;
 import com.pzx.las.LasFileHeader;
 import com.pzx.las.LasFilePointData;
 import com.pzx.las.LittleEndianUtils;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
+import org.apache.spark.FutureAction;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
-import sun.reflect.generics.tree.Tree;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.DoubleBinaryOperator;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class LasSplit {
@@ -192,41 +185,49 @@ public class LasSplit {
         List<CountDownLatch> countDownLatchList = new ArrayList<>();
 
         //当下一次读取的点数之和将超过pointBytesListLimit 出发一下spark任务
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        int pointAccumulation = 0;
+        ByteBuffer pointBuffer = ByteBuffer.allocateDirect(Integer.MAX_VALUE/2);
+
 
         for(int i=0;i<lasFilePathList.size();i++){
             String lasFilePath = lasFilePathList.get(i);
             LasFile lasFile = new LasFile(lasFilePath);
-            LasFileHeader lasFileHeader = lasFile.getLasFileHeader();
+            //LasFileHeader lasFileHeader = lasFile.getLasFileHeader();
             List<LasFilePointData> lasFilePointDataList = lasFile.getLasFilePointDataList();
 
 
             for(int j=0;j<lasFilePointDataList.size();j++){
                 LasFilePointData lasFilePointData = lasFilePointDataList.get(j);
-                lasFilePointData.pointBytesToByteArray(byteArrayOutputStream);
-                pointAccumulation += lasFilePointData.getNumberOfPointRecords();
 
-
-                if (pointAccumulation>pointBatchLimit||((i==lasFilePathList.size()-1)&&(j==lasFilePointDataList.size()-1))){
+                if (lasFilePointData.getNumberOfPointRecords()*27 + pointBuffer.position() > pointBuffer.capacity()-1||((i==lasFilePathList.size()-1)&&(j==lasFilePointDataList.size()-1))){
                     //如果缓冲区点数超过BatchLimit，则触发一次spark任务
 
-                    //生成中间文件，供spark任务使用
-                    long time = System.currentTimeMillis();
-                    String tmpFileName = createTmpFile(byteArrayOutputStream,outputDirPath);
-                    logger.info("----------------------------------------------------生成中间文件耗时："+(System.currentTimeMillis()-time));
                     CountDownLatch countDownLatch = new CountDownLatch(1);
                     countDownLatchList.add(countDownLatch);
                     final int sparkTaskIndex = countDownLatchList.size();
+
+                    pointBuffer.flip();
+                    byte[] tmpFileBytes = new byte[pointBuffer.remaining()];
+                    pointBuffer.get(tmpFileBytes,0,tmpFileBytes.length);
+                    pointBuffer.clear();
+
+                    //生成中间文件，供spark任务使用
+                    long time = System.currentTimeMillis();
+                    String tmpFileName = createTmpFile(tmpFileBytes,outputDirPath);
+                    logger.info("----------------------------------------------------生成中间文件耗时："+(System.currentTimeMillis()-time));
+
+
                     executorService.execute(()->{
+
                         logger.info("-------------------------------------------------------------提交spark任务"+sparkTaskIndex);
                         doSparkTask(sc,tmpFileName ,cloudjs,outputDirPath);
                         countDownLatch.countDown();
                         logger.info("-------------------------------------------------------------spark任务"+sparkTaskIndex+"结束");
                     });
-                    byteArrayOutputStream = new ByteArrayOutputStream();
-                    pointAccumulation =0;
+
                 }
+
+                lasFilePointData.pointBytesToByteBuffer(pointBuffer);
+
 
             }
 
@@ -250,21 +251,18 @@ public class LasSplit {
     /**
      * 生成中间文件，spark任务使用
      * 中间文件为二进制文件：每27个字节为一个点 xyz分别为8字节double，rgb为1字节byte
-     * @param byteArrayOutputStream 缓冲区，用于缓冲内存中的点，到到达一定大小，就生成中间文件写到输出目录中（一般为hdfs）
+     * @param tmpFileBytes 缓冲区字节，用于缓冲内存中的点，到到达一定大小，就生成中间文件写到输出目录中（一般为hdfs）
      * @param outputDirPath 输出目录
      * @return
      */
-    public static String createTmpFile(ByteArrayOutputStream byteArrayOutputStream,String outputDirPath){
+    public static String createTmpFile(byte[] tmpFileBytes,String outputDirPath){
 
         String tmpFileName = System.currentTimeMillis()+".tmp";
-        IOUtils.writerDataToFile(outputDirPath+File.separator+tmpFileName,byteArrayOutputStream.toByteArray(),false);
-        try {
-            byteArrayOutputStream.close();
-        }catch (Exception e){
-            e.printStackTrace();
-        }
+        IOUtils.writerDataToFile(outputDirPath+File.separator+tmpFileName,tmpFileBytes,false);
 
         return tmpFileName;
+
+
     }
 
 
@@ -330,7 +328,6 @@ public class LasSplit {
             byte[] coordinateBytes = SplitUtils.pointInZigZagFormat(new int[]{newX,newY,newZ});
             int coordinateBytesLength = coordinateBytes.length;
 
-            //byte[] newClodBytes = LittleEndianUtils.shortToBytes((short)(clod/0.01));
 
             byte[] pointNewBytesArray = new byte[coordinateBytes.length+3];
             for(int i=0;i<coordinateBytesLength;i++){
@@ -371,6 +368,30 @@ public class LasSplit {
             DistributedRedisLock.unlock(nodeKey);
             byteOutputStream.close();
         });
+
+
+
+              /*
+                .mapPartitions(iterator ->{
+            Map<String,ByteArrayOutputStream>  map = new HashMap<>();
+            while (iterator.hasNext()){
+                Tuple2<String,byte[]> tuple2 = iterator.next();
+                map.putIfAbsent(tuple2._1,new ByteArrayOutputStream());
+                map.get(tuple2._1).write(tuple2._2);
+            }
+            return map.entrySet().iterator();
+        }).foreach(entry ->{
+            String nodeKey = entry.getKey();
+            ByteArrayOutputStream byteArrayOutputStream = entry.getValue();
+            //分布式锁
+            DistributedRedisLock.lock(nodeKey);
+
+            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteArrayOutputStream.toByteArray(),true);
+            DistributedRedisLock.unlock(nodeKey);
+            byteArrayOutputStream.close();
+        });
+
+               */
 
 
         try {

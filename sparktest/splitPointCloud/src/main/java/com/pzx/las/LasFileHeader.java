@@ -55,7 +55,7 @@ public class LasFileHeader {
         this.headerSize = fileHeaderBuffer.capacity();
         this.version = version;
 
-        fileHeaderBuffer.position(96);
+        fileHeaderBuffer.position(96);//略过前面不需要读取的信息
 
         offsetToPointData = LittleEndianUtils.bytesToUnsignedInteger(readBytes(4));
         numberOfVariableLengthRecords = LittleEndianUtils.bytesToUnsignedInteger(readBytes(4));
@@ -63,7 +63,11 @@ public class LasFileHeader {
         pointDataRecordLength = LittleEndianUtils.bytesToUnsignedShort(readBytes(2));
         numberOfPointRecords = LittleEndianUtils.bytesToUnsignedInteger(readBytes(4));
 
-        fileHeaderBuffer.position(fileHeaderBuffer.position()+20);//Number of points by return 20bytes
+
+        if(Float.parseFloat(version)>=1.3)
+            fileHeaderBuffer.position(fileHeaderBuffer.position()+28);// version >= 1.3 Number of points by return 28bytes
+        else
+            fileHeaderBuffer.position(fileHeaderBuffer.position()+20);//version <= 1.2 Number of points by return 20bytes
 
         xScale = Math.abs(LittleEndianUtils.bytesToDouble(readBytes(8)));
         yScale = Math.abs(LittleEndianUtils.bytesToDouble(readBytes(8)));
