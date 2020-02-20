@@ -3,6 +3,9 @@ package com.pzx;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.streaming.Duration;
+import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
 import java.io.InputStream;
 import java.util.Properties;
@@ -27,6 +30,10 @@ public class SparkUtils {
                 sparkConf.set(sparkPropertyNames,sparkProperties.getProperty(sparkPropertyNames));
             }
 
+            //spark streaming
+            //JavaStreamingContext javaStreamingContext = new JavaStreamingContext(sparkConf, Durations.seconds(1));
+
+
             //sparkConf.set("spark.serializer","org.apache.spark.serializer.KryoSerializer");
             //sparkConf.registerKryoClasses(new Class[]{String[].class,String.class,List.class});
             //sparkConf.set("spark.executor.extraJavaOptions","-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/tmp/gc.log");//输出GC日志
@@ -38,6 +45,9 @@ public class SparkUtils {
         }catch (Exception e){
             e.printStackTrace();
             logger.warn("sparkContext初始化失败！");
+
+
+
             return null;
         }
 

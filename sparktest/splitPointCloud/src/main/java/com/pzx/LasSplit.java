@@ -6,12 +6,11 @@ import com.pzx.las.LasFile;
 import com.pzx.las.LasFileHeader;
 import com.pzx.las.LasFilePointData;
 import com.pzx.las.LittleEndianUtils;
+
 import org.apache.log4j.Logger;
-import org.apache.spark.FutureAction;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -21,7 +20,7 @@ import java.util.stream.Collectors;
 public class LasSplit {
 
     private static Logger logger = Logger.getLogger(LasSplit.class);
-
+    private static String tableName = "PointCloudDirect";
     private static long pointBatchLimit = 30000000;
     private static int pointNumPerNode = 30000;
     private static int dimension = 3;
@@ -39,6 +38,8 @@ public class LasSplit {
         }
 
 
+        //HBaseUtils.createTable(tableName,new String[]{"data"});
+
         long time = System.currentTimeMillis();
         List<String> lasFilePathList = IOUtils.listAllFiles(inputDirPath).stream().filter((x)->{return x.endsWith(".las");}).collect(Collectors.toList());
 
@@ -53,6 +54,7 @@ public class LasSplit {
         List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
 
         createHrcFile(binFilePathList,outputDirPath);
+        //createHrcRow(tableName);
         logger.info("-----------------------------------生成索引文件r.hrc");
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
 
@@ -68,6 +70,7 @@ public class LasSplit {
     public static JSONObject createCloudJS(List<String> lasFilePathList,String outputDirPath){
         JSONObject cloudJS = getPointCloudInformationJson(lasFilePathList);
         try {
+            //HBaseUtils.put(tableName,"cloud","data","js",cloudJS.toJSONString().getBytes("utf-8"));
             IOUtils.writerDataToFile(outputDirPath+ File.separator+"cloud.js",cloudJS.toJSONString().getBytes("utf-8"),false);
         }catch (Exception e){
             e.printStackTrace();
@@ -185,7 +188,7 @@ public class LasSplit {
         List<CountDownLatch> countDownLatchList = new ArrayList<>();
 
         //当下一次读取的点数之和将超过pointBytesListLimit 出发一下spark任务
-        ByteBuffer pointBuffer = ByteBuffer.allocateDirect(Integer.MAX_VALUE/2);
+        ByteBuffer pointBuffer = ByteBuffer.allocate(Integer.MAX_VALUE/2);
 
 
         for(int i=0;i<lasFilePathList.size();i++){
@@ -228,11 +231,8 @@ public class LasSplit {
 
                 lasFilePointData.pointBytesToByteBuffer(pointBuffer);
 
-
             }
-
         }
-
 
         try {
             for(CountDownLatch countDownLatch1 :countDownLatchList)
@@ -283,7 +283,6 @@ public class LasSplit {
         double[] scale = (double[])cloudjs.get("scale");
 
 
-
         //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
         JSONObject tightBoundingBoxJson = cloudjs.getJSONObject("tightBoundingBox");
         int dimension1 = dimension;
@@ -297,8 +296,6 @@ public class LasSplit {
         logger.info("----------------------------------------此次分片的维度为："+splitDimension);
         int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,splitDimension);
         logger.info("----------------------------------------此次分片的最大层级为为："+maxLevel);
-
-
 
         JavaRDD<byte[]>pointBytesRDD = sc.binaryRecords(outputDirPath+File.separator+tmpFileName,27);
 
@@ -317,13 +314,6 @@ public class LasSplit {
             int newX = (int)((x-xyzOffset[0])/scale[0]);
             int newY = (int)((y-xyzOffset[1])/scale[1]);
             int newZ = (int)((z-xyzOffset[2])/scale[2]);
-
-
-            /*
-            byte[] xBytes = LittleEndianUtils.integerToBytes(newX);
-            byte[] yBytes = LittleEndianUtils.integerToBytes(newY);
-            byte[] zBytes = LittleEndianUtils.integerToBytes(newZ);
-             */
 
             byte[] coordinateBytes = SplitUtils.pointInZigZagFormat(new int[]{newX,newY,newZ});
             int coordinateBytesLength = coordinateBytes.length;
@@ -356,17 +346,29 @@ public class LasSplit {
             String nodeKey = tuple2._1;
             Iterator<byte[]> iterator = tuple2._2.iterator();
 
-            ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+            /*
+            ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.MAX_VALUE/2);
             while (iterator.hasNext()){
                 byte[] pointBytesArray = iterator.next();
-                byteOutputStream.write(pointBytesArray);
+                byteBuffer.put(pointBytesArray);
             }
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
+            byteBuffer.flip();
+            byte[] pointBytes = new byte[byteBuffer.remaining()];
+            byteBuffer.get(pointBytes,0,pointBytes.length);
+            byteBuffer.clear();
 
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
+             */
+
+            //分布式锁
+            /**/
+            DistributedRedisLock.lock(nodeKey);
+            String outputFilePath = outputDirPath+File.separator+(nodeKey.length()-1)+nodeKey+".bin";
+            IOUtils.writerDataToFile(outputFilePath,iterator,true);
             DistributedRedisLock.unlock(nodeKey);
-            byteOutputStream.close();
+
+            //HBaseUtils.put(tableName,(nodeKey.length()-1)+nodeKey,"data",System.currentTimeMillis()+"",pointBytes);
+
+
         });
 
 
@@ -511,6 +513,33 @@ public class LasSplit {
     public static void createHrcFile(List<String> binFilePathList,String outputDirPath){
 
         List<String> nodeKeyList = binFilePathList.stream().map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1,binFilePath.lastIndexOf("."))).collect(Collectors.toList());
+
+        byte[] hrcBytes = createHrcBytes(nodeKeyList);
+
+        try {
+            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+
+    /**
+     * 利用HBase数据库中的rowkey生成八叉树的索引文件
+     *
+
+    public static void createHrcRow(String tableName){
+        Filter keyOnlyFilter = new KeyOnlyFilter();
+        Map<String,byte[]> resultMap = HBaseUtils.scan(tableName,null,null,null,null,keyOnlyFilter);
+        List<String> nodeKeyList = resultMap.keySet().stream().map(nodeKey -> nodeKey.split("-")[0].substring(1)).filter(nodeKey -> nodeKey.startsWith("r")).collect(Collectors.toList());
+        byte[] hrcBytes = createHrcBytes(nodeKeyList);
+        HBaseUtils.put(tableName,"hrc","data","hrc",hrcBytes);
+
+    }
+    */
+
+    public static byte[] createHrcBytes(List<String> nodeKeyList){
         HashSet<String> nodeKeySet = (HashSet<String>) nodeKeyList.stream().collect(Collectors.toSet());
 
         nodeKeyList.sort(new Comparator<String>() {
@@ -538,14 +567,7 @@ public class LasSplit {
             hrcBytes[i] = mask;
         }
 
-        try {
-            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-
+        return hrcBytes;
     }
-
-
 
 }

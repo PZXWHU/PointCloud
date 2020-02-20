@@ -53,8 +53,9 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-client</artifactId>
       <version>1.4.9</version>
-    </dependency>-->
-
+      <scope>provided</scope>
+    </dependency>
+      -->
     <!--
     <dependency>
       <groupId>com.thoughtworks.paranamer</groupId>

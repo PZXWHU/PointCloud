@@ -38,9 +38,9 @@ public class DataImport
 
             Connection hbaseConnection = HBaseUtils.getConnection();
 
-            if(!hbaseConnection.getAdmin().tableExists(TableName.valueOf(tableName))){
-                HBaseUtils.createTable(tableName,new String[]{"data"});
-            }
+
+            HBaseUtils.createTable(tableName,new String[]{"data"});
+
 
             Table table = hbaseConnection.getTable(TableName.valueOf(tableName));
             file2HBase(dataDirStr,table);

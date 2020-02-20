@@ -4,16 +4,14 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.filter.CompareFilter;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.RegexStringComparator;
-import org.apache.hadoop.hbase.filter.RowFilter;
+import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class HBaseUtils {
 
@@ -152,14 +150,13 @@ public class HBaseUtils {
         }
     }
 
-    public static void insertRow(String tableName,String rowKey,String colFamily,String col,String val){
+    public static void put(String tableName,String rowKey,String colFamily,String col,byte[] val){
 
         try{
             Table table = connection.getTable(TableName.valueOf(tableName));
 
             Put put = new Put(Bytes.toBytes(rowKey));
-            put.addColumn(Bytes.toBytes(colFamily),Bytes.toBytes(col),Bytes.toBytes(val));
-
+            put.addColumn(Bytes.toBytes(colFamily),Bytes.toBytes(col),val);
             table.put(put);
             table.close();
 
@@ -244,6 +241,9 @@ public class HBaseUtils {
             if(stopRowKey!=null){
                 scan.withStopRow(Bytes.toBytes(stopRowKey));
             }
+            if(colFamily!=null&&!colFamily.equals("")){
+                scan.addFamily(Bytes.toBytes(colFamily));
+            }
             if(colFamily!=null&&!colFamily.equals("")&&col!=null&&!col.equals("")){
                 scan.addColumn(Bytes.toBytes(colFamily),Bytes.toBytes(col));
             }
@@ -261,7 +261,7 @@ public class HBaseUtils {
                     String cellColFamily = Bytes.toString(CellUtil.cloneFamily(cell));
                     String cellCol = Bytes.toString(CellUtil.cloneQualifier(cell));
                     byte[] cellValues = CellUtil.cloneValue(cell);
-                    resultMap.put(cellRowkey+"|"+cellColFamily+"|"+cellCol,cellValues);
+                    resultMap.put(cellRowkey+"-"+cellColFamily+"-"+cellCol,cellValues);
                 }
             }
 
@@ -275,8 +275,8 @@ public class HBaseUtils {
 
     public static Map<String, byte[]> scanWithChildNodeFilter(String tableName,String colFamily, String col, String parentNodeKey, String childNodeFilterStr){
         String level = parentNodeKey.length() + "";
-        String startRowKey = parentNodeKey;
-        String stopRowKey = parentNodeKey + "8";
+        String startRowKey = level + parentNodeKey;
+        String stopRowKey = level + parentNodeKey + "8";
         String filterStr = "^" + startRowKey + "[" + childNodeFilterStr + "]" + "$";
         Filter filter = new RowFilter(CompareFilter.CompareOp.EQUAL,new RegexStringComparator(filterStr));
 
@@ -349,14 +349,34 @@ public class HBaseUtils {
         return initConnection();
     }
 
+
+
     public static void main(String[] args) {
         long t = System.currentTimeMillis();
-        System.out.println(getData("customdata26Gnoclod","r2","data","bin"));
+        System.out.println(getData("PointCloud","1r2","data","bin"));
+
         System.out.println("耗时："+(System.currentTimeMillis()-t));
-        Map<String,byte[]> result = scanWithChildNodeFilter("customdata26Gnoclod","data","bin","r","12345");
+
+        Map<String,byte[]> result = scanWithChildNodeFilter("PointCloud","data","bin","r","12345");
         for(String key : result.keySet())
             System.out.println(key);
         System.out.println("耗时："+(System.currentTimeMillis()-t));
+
+
+
+        /*
+        String tableName = "PointCloud";
+        Filter keyOnlyFilter = new KeyOnlyFilter();
+        Map<String,byte[]> resultMap = HBaseUtils.scan(tableName,null,null,null,null,keyOnlyFilter);
+
+        List<String> nodeKeyList = resultMap.keySet().stream().map(nodeKey -> nodeKey.split("-")[0].substring(1)).filter(nodeKey -> nodeKey.startsWith("r")).collect(Collectors.toList());
+
+        byte[] hrcBytes = createHrcBytes(nodeKeyList);
+
+        HBaseUtils.put(tableName,"hrc","data","hrc",hrcBytes);
+        System.out.println("耗时："+(System.currentTimeMillis()-t));
+
+         */
     }
 
 

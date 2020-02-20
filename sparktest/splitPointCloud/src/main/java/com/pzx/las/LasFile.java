@@ -58,11 +58,6 @@ public class LasFile {
             long numberOfVariableLengthRecords = lasFileHeader.getNumberOfVariableLengthRecords();
             MappedByteBuffer variableLLengthRecordBuffer =  fileChannel.map(FileChannel.MapMode.READ_ONLY,headerSize,offsetToPointData - headerSize);
             lasFileVariableLengthRecord = new LasFileVariableLengthRecord(variableLLengthRecordBuffer,numberOfVariableLengthRecords);
-            System.out.println(offsetToPointData);
-            System.out.println(headerSize);
-            System.out.println(version);
-            System.out.println(numberOfVariableLengthRecords);
-
 
             long pointDataBytesCount = numberOfPointRecords*pointDataRecordLength;//总共点数据的字节数
             int pointBytesPerBuffer = (Integer.MAX_VALUE/(4*pointDataRecordLength))*pointDataRecordLength;//每一个buffer中的最大容量
@@ -132,14 +127,6 @@ public class LasFile {
 
 
     public static void main(String[] args) throws IOException{
-        long time = System.currentTimeMillis();
-        LasFile lasFile = new LasFile("D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\hn3\\C_51DN2.las");
-
-        List<LasFilePointData> lasFilePointDataList = lasFile.getLasFilePointDataList();
-        for(int i =0;i<10;i++)
-            System.out.println(lasFilePointDataList.get(0).getPoint());
-
-
 
     }
 
