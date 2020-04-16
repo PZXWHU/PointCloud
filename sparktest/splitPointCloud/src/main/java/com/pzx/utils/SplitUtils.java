@@ -1,7 +1,9 @@
-package com.pzx;
+package com.pzx.utils;
+
 
 
 import org.apache.log4j.Logger;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -172,6 +174,7 @@ public class SplitUtils {
         }
         return zigZagBytes;
     }
+
 
 
     public static void main(String[] args) {

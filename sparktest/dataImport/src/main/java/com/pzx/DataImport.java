@@ -37,10 +37,7 @@ public class DataImport
             String dataDirStr = args[1];
 
             Connection hbaseConnection = HBaseUtils.getConnection();
-
-
             HBaseUtils.createTable(tableName,new String[]{"data"});
-
 
             Table table = hbaseConnection.getTable(TableName.valueOf(tableName));
             file2HBase(dataDirStr,table);

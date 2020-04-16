@@ -1,4 +1,4 @@
-package com.pzx;
+package com.pzx.pointcloud;
 
 public enum PointAttribute {
 

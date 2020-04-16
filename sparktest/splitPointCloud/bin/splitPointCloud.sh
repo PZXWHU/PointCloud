@@ -7,6 +7,11 @@ spark-submit \
 splitPointCloud.jar laz hdfs://master:9000/pzx/custom
 
 
+spark-submit --driver-memory 2g --executor-memory 5g --class com.pzx.split.TxtSplit1 \
+--conf spark.driver.extraJavaOptions="-Dlog4j.configuration=file:/home/pzx/log4j-driver.properties" \
+split_txt.jar hdfs://master:9000/pzx/txtdata hdfs://master:9000/pzx/custom
+
+
 
 --conf spark.driver.extraJavaOptions="-Dlog4j.debug=true" \
 --conf spark.driver.extraClassPath="/usr/local/spark-2.4.4/hbase-jars/*" \

@@ -1,12 +1,17 @@
-package com.pzx;
+package com.pzx.split;
 
 import com.alibaba.fastjson.JSONObject;
+import com.pzx.HDFSUtils;
+import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
 import com.pzx.las.LasFile;
 import com.pzx.las.LasFileHeader;
 import com.pzx.las.LasFilePointData;
 import com.pzx.las.LittleEndianUtils;
 
+import com.pzx.utils.CloudJSUtils;
+import com.pzx.utils.SparkUtils;
+import com.pzx.utils.SplitUtils;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -20,7 +25,7 @@ import java.util.stream.Collectors;
 public class LasSplit {
 
     private static Logger logger = Logger.getLogger(LasSplit.class);
-    private static String tableName = "PointCloudDirect";
+
     private static long pointBatchLimit = 30000000;
     private static int pointNumPerNode = 30000;
     private static int dimension = 3;
@@ -36,9 +41,6 @@ public class LasSplit {
             inputDirPath = args[0];
             outputDirPath = args[1];
         }
-
-
-        //HBaseUtils.createTable(tableName,new String[]{"data"});
 
         long time = System.currentTimeMillis();
         List<String> lasFilePathList = IOUtils.listAllFiles(inputDirPath).stream().filter((x)->{return x.endsWith(".las");}).collect(Collectors.toList());
@@ -89,7 +91,7 @@ public class LasSplit {
         long points = 0L;
         double[] scale = new double[]{1,1,1};
         double[] tightBoundingBox = new double[]{-Double.MIN_VALUE,-Double.MIN_VALUE,-Double.MIN_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE};
-        double[] boundingBox = new double[6];
+        double[] boundingBox;
 
         for(String lasFilePath:lasFilePathList){
             long time = System.currentTimeMillis();
@@ -109,39 +111,10 @@ public class LasSplit {
                 tightBoundingBox[i+3] = Math.min(tightBoundingBox[i+3],lasTightBounding[i+3]);
             }
         }
-        //boundingBox
-        double boxSideLength = 0;
-        for(int i=0;i<3;i++){
-            boxSideLength = Math.max(tightBoundingBox[i]-tightBoundingBox[i+3],boxSideLength);
-        }
-        for(int i=0;i<3;i++){
-            boundingBox[i+3] = tightBoundingBox[i+3];
-            boundingBox[i] = boundingBox[i+3] +boxSideLength;
-        }
 
-        JSONObject cloudjs = new JSONObject();
-        cloudjs.put("points",points);
-
-        JSONObject tightBoundingBoxJson = new JSONObject();
-        tightBoundingBoxJson.put("ux",tightBoundingBox[0]);
-        tightBoundingBoxJson.put("uy",tightBoundingBox[1]);
-        tightBoundingBoxJson.put("uz",tightBoundingBox[2]);
-        tightBoundingBoxJson.put("lx",tightBoundingBox[3]);
-        tightBoundingBoxJson.put("ly",tightBoundingBox[4]);
-        tightBoundingBoxJson.put("lz",tightBoundingBox[5]);
-        cloudjs.put("tightBoundingBox",tightBoundingBoxJson);
-
-        JSONObject boundingBoxJson = new JSONObject();
-        boundingBoxJson.put("ux",boundingBox[0]);
-        boundingBoxJson.put("uy",boundingBox[1]);
-        boundingBoxJson.put("uz",boundingBox[2]);
-        boundingBoxJson.put("lx",boundingBox[3]);
-        boundingBoxJson.put("ly",boundingBox[4]);
-        boundingBoxJson.put("lz",boundingBox[5]);
-        cloudjs.put("boundingBox",boundingBoxJson);
-
-        cloudjs.put("scale",scale);
-        cloudjs.put("pointAttributes",new String[]{"POSITION_CARTESIAN","RGB_PACKED"});
+        boundingBox = CloudJSUtils.getBoundingBox(tightBoundingBox);
+        String[] pointAttributes = new String[]{"POSITION_CARTESIAN","RGB_PACKED"};
+        JSONObject cloudjs = CloudJSUtils.buildCloudJS(points,tightBoundingBox,boundingBox,scale,pointAttributes);
 
         return cloudjs;
     }
@@ -285,14 +258,14 @@ public class LasSplit {
 
         //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
         JSONObject tightBoundingBoxJson = cloudjs.getJSONObject("tightBoundingBox");
-        int dimension1 = dimension;
+
         if((tightBoundingBoxJson.getDoubleValue("ux")-tightBoundingBoxJson.getDoubleValue("lx"))<(boundingBox[0]-boundingBox[3])/10.0||
                 (tightBoundingBoxJson.getDoubleValue("uy")-tightBoundingBoxJson.getDoubleValue("ly"))<(boundingBox[0]-boundingBox[3])/10.0||
                 (tightBoundingBoxJson.getDoubleValue("uz")-tightBoundingBoxJson.getDoubleValue("lz"))<(boundingBox[0]-boundingBox[3])/10.0){
-            dimension1 = 2;
+            dimension = 2;
 
         }
-        final int splitDimension = Math.min(dimension,dimension1);
+        final int splitDimension = dimension;
         logger.info("----------------------------------------此次分片的维度为："+splitDimension);
         int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,splitDimension);
         logger.info("----------------------------------------此次分片的最大层级为为："+maxLevel);

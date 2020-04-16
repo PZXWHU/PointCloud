@@ -72,14 +72,21 @@ if __name__ == '__main__':
     y_accumluate_data = [sum(y_data[0:i+1]) for i in range(len(y_data))]
 
 
+    font2 = {
+             'weight': 'normal',
+             'size': 22,
+             }
+
     plt.figure(1)
     plt.bar(x_data,y_data,width=bar_width)
     plt.grid(True, linestyle = '--',axis='y')
     plt.xticks(range(0,L+2),range(0,L+2))
     #plt.plot(x_data,y_data,c = 'r')
     plt.plot([x[0] for x in data_list],[f_fit(x[0],p_first,0,math.pow(q,1.0/bar_width)) for x in data_list],c = 'r')
-    plt.xlabel('层级')
-    plt.ylabel('概率')
+    plt.xlabel('层级',font2)
+    plt.ylabel('概率',font2)
+    plt.tick_params(labelsize=18) #刻度字体大小13
+
     plt.show()
 
     plt.figure(2)
@@ -87,8 +94,10 @@ if __name__ == '__main__':
     plt.grid(True, linestyle = '--',axis='y')
     plt.xticks(range(0,L+2),range(0,L+2))
     #plt.plot([x[0] for x in data_list],[f_fit(x[0],p_first*q/(q-1),p_first/(1-q),math.pow(q,1.0/bar_width)) for x in data_list],c = 'r')
-    plt.xlabel('层级')
-    plt.ylabel('累计概率')
+    plt.xlabel('层级',font2)
+    plt.ylabel('累计概率',font2)
+    plt.tick_params(labelsize=18) #刻度字体大小13
+    plt.title("CLOD层级累计分布概率",font2)
     plt.show()
 
     plt.figure(3)
@@ -96,7 +105,9 @@ if __name__ == '__main__':
     plt.grid(True, linestyle = '--',axis='x')
     plt.yticks(range(0,L+2),range(0,L+2))
     plt.plot(np.arange(0,1,0.01),[clod(rnd,d,L) for rnd in np.arange(0,1,0.01)],c = 'r')
-    plt.xlabel('随机数')
-    plt.ylabel('层级')
+    plt.xlabel('随机数',font2)
+    plt.ylabel('层级',font2)
+    plt.tick_params(labelsize=18) #刻度字体大小13
+    plt.title("CLOD层级生成函数",font2)
     plt.show()
 

@@ -1,6 +1,10 @@
-package com.pzx;
+package com.pzx.split;
 
 import com.alibaba.fastjson.JSONObject;
+import com.pzx.IOUtils;
+import com.pzx.pointcloud.PointAttribute;
+import com.pzx.pointcloud.PointCloud;
+import com.pzx.utils.SplitUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 import org.apache.spark.Partitioner;
@@ -14,14 +18,14 @@ import scala.Tuple2;
 
 import java.io.*;
 
-import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Hello world!
+ * @deprecated
  *
  */
+
 public class TxtSplit
 {
 
