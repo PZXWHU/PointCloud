@@ -1,0 +1,54 @@
+<html>
+
+<script src="https://cdn.bootcss.com/jquery/1.12.4/jquery.min.js"></script>
+<script>
+    /*
+        $.ajax({url:"http://192.168.119.100:8080/PotreeView/hhh",success:function(result){
+           console.log(result)
+        }});
+        */
+
+        urls = [];
+        urls[0] = 'http://test1:8080/PotreeView/clodData20G?nodeName=r';
+        urls[1] = 'http://test2:8080/PotreeView/hhh';
+        urls[2] = 'http://test3:8080/PotreeView/hhh';
+        urls[3] = 'http://test4:8080/PotreeView/hhh';
+        urls[4] = 'http://test5:8080/PotreeView/hhh';
+        urls[5] = 'http://test6:8080/PotreeView/hhh';
+        urls[6] = 'http://test7:8080/PotreeView/hhh';
+        urls[7] = 'http://test8:8080/PotreeView/hhh';
+        urls[8] = 'http://test9:8080/PotreeView/hhh';
+        urls[9] = 'http://test10:8080/PotreeView/hhh';
+
+        for(let i=0;i<1000;i++){
+            let xhr = new XMLHttpRequest();
+            if(i<250)
+                url = urls[0]
+            else if(i<500)
+                url = urls[1]
+            else if(i<750)
+                url = urls[2]
+            else
+                url = urls[3]
+            xhr.open('GET', url, true);
+            //xhr.responseType = 'arraybuffer';
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        let hbuffer = xhr.response;
+                        console.log(hbuffer);
+
+                    } else {
+                        console.log('Failed to load hrcFile!');
+                    }
+                }
+            };
+
+            xhr.send(null);
+        }
+
+      
+
+</script>
+
+</html>

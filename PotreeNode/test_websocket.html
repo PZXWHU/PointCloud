@@ -1,0 +1,225 @@
+<html>
+<head>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+</head>
+<script src="https://cdn.bootcss.com/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
+<script src="lib/pako.js"></script>
+<script>
+    //将文本转换为utf8编码的字节数组
+    function encodeUtf8(text) {
+        const code = encodeURIComponent(text);
+        const bytes = [];
+        for (var i = 0; i < code.length; i++) {
+            const c = code.charAt(i);
+            if (c === '%') {
+                const hex = code.charAt(i + 1) + code.charAt(i + 2);
+                const hexVal = parseInt(hex, 16);
+                bytes.push(hexVal);
+                i += 2;
+            } else bytes.push(c.charCodeAt(0));
+        }
+        return bytes;
+    }
+    //将utf8编码的字节数组转换未文本
+    function decodeUtf8(bytes) {
+        var encoded = "";
+        for (var i = 0; i < bytes.length; i++) {
+            encoded += '%' + bytes[i].toString(16);
+        }
+        return decodeURIComponent(encoded);
+    }
+</script>
+<script>
+
+    var websocket;
+
+    var lockReconnect = false;//避免重复连接
+    var wsUrl = "ws://47.112.97.110:8080";
+
+    function createWebSocket(wsUrl){
+        try {
+            //连接websocket，异步事件，所以下面发送信息并不能立即执行，因为连接还未完成
+            websocket = new WebSocket(wsUrl);
+            websocketInit(wsUrl);
+        } catch (e) {
+            console.log('catch');
+            websocketReconnect(wsUrl);
+        }
+    }
+
+    function websocketInit(wsUrl){
+        websocket.binaryType = "arraybuffer";//可以指定接收的二进制流数据是arraybuffer
+
+        websocket.onopen = () => {
+            console.log('websocket连接开启...')
+            heartCheck.start();
+        }
+
+        //收到信息事件
+        websocket.onmessage = function (event) {
+
+            heartCheck.start();
+
+            //只有心跳检测会返回文本类型
+            if (typeof event.data === "string") {
+                console.log(event.data);
+            }
+
+            if (event.data instanceof ArrayBuffer) {
+                var buffer = event.data;
+                var bufferView = new DataView(buffer);
+                console.log("Received arraybuffer");
+
+
+
+
+                var responseType = bufferView.getUint8(0);
+                if(responseType==0){
+                    console.log("接收到心跳检测！")
+                }else if(responseType==1){
+                    var dataNameLen = bufferView.getUint8(1);
+
+                    let dataNameBytes = [];
+                    for(let i=0;i<dataNameLen;i++){
+                        dataNameBytes.push(bufferView.getUint8(i+2))
+                    }
+                    console.log("dataName为:"+decodeUtf8(dataNameBytes) )
+
+                    console.log(buffer.slice(dataNameLen+2,buffer.byteLength).byteLength);
+                    // 后端进行压缩数据处理（zlib），所以前端进行解压缩
+                    var result = pako.ungzip(buffer.slice(dataNameLen+2,buffer.byteLength));
+                    console.log(result.byteLength)
+                }
+
+
+            }
+            /*
+            if (event.data instanceof Blob) {
+
+                // js中的blob没有没有直接读出其数据的方法，通过FileReader来读取相关数据
+                let reader = new FileReader();
+                reader.readAsArrayBuffer(event.data);
+                // 当读取操作成功完成时调用.
+                reader.onload = (evt) => {
+                    if (evt.target.readyState === FileReader.DONE) {
+                        //未解亚的数据
+                        let data = new DataView(evt.target.result);
+                        console.log(data.byteLength);
+
+                        // 后端进行压缩数据处理（zlib），所以前端进行解压缩
+
+                        var result = pako.ungzip(evt.target.result);
+                        console.log(result.byteLength)
+                    }
+                }
+            }
+
+             */
+        };
+
+        websocket.onerror = function(err){
+            console.log(err.data);
+            websocketReconnect(wsUrl)
+
+        };
+
+        websocket.onclose = function (evt) {
+            console.log("Connection closed.");
+            websocketReconnect(wsUrl)
+        };
+    }
+
+
+    function websocketReconnect(wsUrl){
+        if (lockReconnect) {       // 是否已经执行重连
+            return;
+        };
+        lockReconnect = true;
+        //没连接上会一直重连，设置延迟避免请求过多
+        tt && clearTimeout(tt);
+        var tt = setTimeout(function () {
+            createWebSocket(wsUrl);
+            lockReconnect = false;
+        }, 5000);
+
+    }
+
+    //心跳检测
+    var heartCheck = {
+        timeout: 1000,//20秒进行一次心跳检测
+        timeoutObj: null,
+        serverTimeoutObj: null,
+        start: function () {
+            console.log("心跳检测")
+            var self = this;
+
+            //清除两个计时器
+            this.timeoutObj && clearTimeout(this.timeoutObj);
+            this.serverTimeoutObj && clearTimeout(this.serverTimeoutObj);
+
+            //重新开启两个计时器
+            this.timeoutObj = setTimeout(function () {
+                //发送心跳测试测试信息
+                var tick = new Uint8Array(1);
+                tick[0] = 0;//requestType = 0
+                websocket.send(tick)
+                self.serverTimeoutObj = setTimeout(function () {
+                    //如果未收到服务器返回的心跳信息，则关闭连接，关闭会导致reconnect
+                    websocket.close();
+                }, self.timeout);
+            }, this.timeout)
+        }
+    };
+
+    //初始化
+    createWebSocket(wsUrl);
+
+
+
+    //请求头：目前只包含请求类型 ,一个字节储存 ,表示请求的类型，便于之后扩展
+    let requestType = 2;
+
+    //请求体
+    let requestBodyJson = {
+        'dataType':'bin',//表示请求的数据类型（bin、las、laz、js、hrc）
+        'tableName' : 'PointCloud',//表名
+        'parentNodeKey' : 'r0',//数据名
+        'childNodeFilterStr' : "12345"
+    };
+    //将json对象转换为字符串，再进行utf-8编码
+    let requestBodyBytes = encodeUtf8(JSON.stringify(requestBodyJson));
+
+    //构建请求
+    let request = new ArrayBuffer(requestBodyBytes.length+1);
+    let dataView = new DataView(request);
+    dataView.setUint8(0,requestType);
+    for (let i = 0;i<requestBodyBytes.length;i++){
+        dataView.setUint8(i+1,requestBodyBytes[i])
+    }
+
+
+    setTimeout(function(){
+        // 只有当  webSocket.readyState 为 OPEN才发送订阅
+        // readyState属性返回实例对象的当前状态，共有四种。
+        // CONNECTING：值为0，表示正在连接。
+        // OPEN：值为1，表示连接成功，可以通信了。
+        // CLOSING：值为2，表示连接正在关闭。
+        // CLOSED：值为3，表示连接已经关闭，或者打开连接失败。
+        if(websocket.readyState == 1){
+            console.log("发送信息")
+            websocket.send(dataView);
+        }
+
+    },1000)
+
+</script>
+<script>
+
+
+
+
+</script>
+</html>

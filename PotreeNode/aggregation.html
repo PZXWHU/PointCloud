@@ -1,0 +1,118 @@
+<html>
+<head>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+</head>
+<script src="https://cdn.bootcss.com/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
+<script src="lib/pako.js"></script>
+<script>
+    //将文本转换为utf8编码的字节数组
+    function encodeUtf8(text) {
+        const code = encodeURIComponent(text);
+        const bytes = [];
+        for (var i = 0; i < code.length; i++) {
+            const c = code.charAt(i);
+            if (c === '%') {
+                const hex = code.charAt(i + 1) + code.charAt(i + 2);
+                const hexVal = parseInt(hex, 16);
+                bytes.push(hexVal);
+                i += 2;
+            } else bytes.push(c.charCodeAt(0));
+        }
+        return bytes;
+    }
+    //将utf8编码的字节数组转换未文本
+    function decodeUtf8(bytes) {
+        var encoded = "";
+        for (var i = 0; i < bytes.length; i++) {
+            encoded += '%' + bytes[i].toString(16);
+        }
+        return decodeURIComponent(encoded);
+    }
+</script>
+
+<script>
+
+    var timestamp = (new Date()).valueOf();
+
+    let nodekeyList = ['r123','r1234','r12','r412','r153','r2432','r21','r1','r6','r321343','r12432','r4322','r24','r53','r324','r52','r321345'];
+    let levelQueryCubeDic = {};
+
+    let queryCubeList = [];
+
+    //将同一层级的归为一组
+    for(let i in nodekeyList){
+        let level = (nodekeyList[i].length -1).toString();
+        if(!levelQueryCubeDic.hasOwnProperty(level)){
+            levelQueryCubeDic[level] = [];
+        }
+        levelQueryCubeDic[level].push({'leftBottom':nodekeyList[i],'rightTop':nodekeyList[i]})
+    }
+
+
+    //分别对不同层级的进行聚合
+    for (let level in levelQueryCubeDic){
+
+        let theLevelQueryCubeArray = levelQueryCubeDic[level];
+
+
+        aggregateLevelQueryCube(theLevelQueryCubeArray,level);
+
+
+
+    }
+
+    var timestamp1 = (new Date()).valueOf();
+    console.log(timestamp1-timestamp)
+
+    function aggregateLevelQueryCube(theLevelQueryCubeArray,level) {
+        let samePrefixDic = {};
+
+        //将属于同一个八叉树父节点的归为一组
+        for(let i in theLevelQueryCubeArray){
+            let queryCube = theLevelQueryCubeArray[i];
+            let prefix = queryCube['leftBottom'].slice(0,level);
+            if(!samePrefixDic.hasOwnProperty(prefix)){
+                samePrefixDic[prefix] = [];
+            }
+            samePrefixDic[prefix].push(queryCube)
+        }
+        theLevelQueryCubeArray = []
+
+        //将同属于一个八叉树父节点的聚合
+        for (let prefix in samePrefixDic){
+            let samePrefixQueryCubeArray = samePrefixDic[prefix]
+            aggregateNodeQueryCube(samePrefixQueryCubeArray,level)
+        }
+
+    }
+
+    function aggregateNodeQueryCube(samePrefixQueryCubeArray,level) {
+        let dic = {};
+        let hrc = 0;
+        for(let i in samePrefixQueryCubeArray){
+            let queryCube = samePrefixQueryCubeArray[i];
+            let childIndex = queryCube['leftBottom'].slice(level,level+1);
+            dic[childIndex] = queryCube;
+            hrc = hrc | 1<< parseInt(childIndex)
+        }
+        if(bitSgin == 255){
+            return {'leftBottom':dic['0']['leftBottom'],'rightTop':dic['7']['rightTop']}
+        }
+
+        for(let i=0;i<4;i++){
+            if(hrc>>i==1 && hrc>>(i+4)==1){
+
+            }
+        }
+
+
+
+
+    }
+
+
+</script>
+</html>
