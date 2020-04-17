@@ -222,60 +222,6 @@ public class TxtSplit1 {
                     });
 
                 });
-
-
-        /**
-        dataset.javaRDD()
-                .mapToPair((row)->{
-                    double x = row.getDouble(0);
-                    double y = row.getDouble(1);
-                    double z = row.getDouble(2);
-                    byte r = (byte)row.getInt(3);
-                    byte g = (byte)row.getInt(4);
-                    byte b = (byte)row.getInt(5);
-
-                    double clod = SplitUtils.getClod(maxLevel,splitDimension);
-                    String nodeKey = SplitUtils.getOctreeNodeName(x,y,z,boundingBox,clod);
-                    double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey,boundingBox);
-                    int newX = (int)((x-xyzOffset[0])/scale[0]);
-                    int newY = (int)((y-xyzOffset[1])/scale[1]);
-                    int newZ = (int)((z-xyzOffset[2])/scale[2]);
-
-                    byte[] coordinateBytes = SplitUtils.pointInZigZagFormat(new int[]{newX,newY,newZ});
-                    int coordinateBytesLength = coordinateBytes.length;
-
-                    byte[] pointNewBytesArray = new byte[coordinateBytes.length+3];
-                    for(int i=0;i<coordinateBytesLength;i++){
-                        pointNewBytesArray[i] = coordinateBytes[i];
-                    }
-
-                    pointNewBytesArray[coordinateBytesLength] = r;
-                    pointNewBytesArray[coordinateBytesLength+1] = g;
-                    pointNewBytesArray[coordinateBytesLength+2] = b;
-                    return new Tuple2<String,byte[]>(nodeKey,pointNewBytesArray);
-
-                }) .combineByKey((byte[] pointBytesArray)->{
-            List<byte[]> list = new ArrayList<>();
-            list.add(pointBytesArray);
-            return list;
-        },(List<byte[]> list1,byte[] pointBytesArray)->{
-            list1.add(pointBytesArray);
-            return list1;
-        },(List<byte[]> list1,List<byte[]> list2)->{
-            list1.addAll(list2);
-            return list1;
-        }).foreach((Tuple2<String,List<byte[]>> tuple2)->{
-            String nodeKey = tuple2._1;
-            Iterator<byte[]> iterator = tuple2._2.iterator();
-
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
-            String outputFilePath = outputDirPath+File.separator+(nodeKey.length()-1)+nodeKey+".bin";
-            IOUtils.writerDataToFile(outputFilePath,iterator,true);
-            DistributedRedisLock.unlock(nodeKey);
-        });
-         */
-
     }
 
     /**

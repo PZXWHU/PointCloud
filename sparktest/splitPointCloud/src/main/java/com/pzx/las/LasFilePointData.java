@@ -1,18 +1,10 @@
 package com.pzx.las;
 
-import com.pzx.IOUtils;
-import org.apache.commons.lang.ArrayUtils;
+import com.pzx.utils.LittleEndianUtils;
 import org.apache.log4j.Logger;
 
-import java.io.*;
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 public class LasFilePointData {
