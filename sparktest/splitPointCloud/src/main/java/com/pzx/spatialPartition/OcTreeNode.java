@@ -123,9 +123,9 @@ public class OcTreeNode<T extends WithCuboidMBR> implements Serializable {
 
     /**
      * Traverses the tree top-down breadth-first and calls the visitor
-     * for each node. Stops traversing if a call to Visitor.visit returns false.
+     * for each node. Stops traversing if a call to visit returns false.
      */
-    void traverse(Visitor<T> visitor)
+    void traverse(OcTree.Visitor<T> visitor)
     {
         if (!visitor.visit(this)) {
             return;

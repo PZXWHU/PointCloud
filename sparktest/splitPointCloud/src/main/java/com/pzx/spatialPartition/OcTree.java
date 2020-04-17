@@ -141,6 +141,20 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     }
 
+    /**
+     * 访问者模式
+     * @param <U>
+     */
+    interface Visitor<U extends WithCuboidMBR>{
+        /**
+         * Visits a single node of the tree
+         *
+         * @param treeNode Node to visit
+         * @return true to continue traversing the tree; false to stop
+         */
+        boolean visit(OcTreeNode<U> treeNode);
+    }
+
     public static void main(String[] args) {
         OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),10000,40);
         long time = System.currentTimeMillis();
