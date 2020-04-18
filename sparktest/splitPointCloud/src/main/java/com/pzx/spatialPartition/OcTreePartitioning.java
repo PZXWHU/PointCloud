@@ -1,8 +1,8 @@
 package com.pzx.spatialPartition;
 
-import com.pzx.geom.Cuboid;
-import com.pzx.geom.Point3D;
-import com.pzx.geom.WithCuboidMBR;
+import com.pzx.geometry.Cuboid;
+import com.pzx.geometry.Point3D;
+import com.pzx.geometry.WithCuboidMBR;
 
 import java.io.Serializable;
 import java.util.ArrayList;

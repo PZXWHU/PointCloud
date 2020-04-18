@@ -1,10 +1,9 @@
-package com.pzx.pointcloud;
+package com.pzx.pointCloud;
 
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 public class PointCloud implements Serializable {

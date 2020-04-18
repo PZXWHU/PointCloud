@@ -142,7 +142,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.pzx.split.LasSplit</mainClass>
+                            <mainClass>com.pzx.dataSplit.LasSplit</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

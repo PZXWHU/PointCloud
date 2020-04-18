@@ -1,4 +1,4 @@
-package com.pzx.geom;
+package com.pzx.geometry;
 
 
 import com.google.common.base.Preconditions;

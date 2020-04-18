@@ -1,14 +1,11 @@
 package com.pzx.spatialPartition;
 
 import com.google.common.base.Preconditions;
-import com.pzx.geom.Cuboid;
-import com.pzx.geom.WithCuboidMBR;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Point;
+import com.pzx.geometry.Cuboid;
+import com.pzx.geometry.WithCuboidMBR;
 import org.apache.spark.Partitioner;
 
 import scala.Serializable;
-import scala.Tuple2;
 
 import java.util.HashMap;
 import java.util.List;

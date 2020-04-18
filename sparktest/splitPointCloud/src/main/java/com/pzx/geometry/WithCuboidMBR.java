@@ -1,4 +1,4 @@
-package com.pzx.geom;
+package com.pzx.geometry;
 
 public interface WithCuboidMBR {
 

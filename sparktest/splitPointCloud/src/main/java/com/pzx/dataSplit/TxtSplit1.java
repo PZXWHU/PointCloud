@@ -1,32 +1,21 @@
-package com.pzx.split;
+package com.pzx.dataSplit;
 
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
-import com.pzx.pointcloud.PointAttribute;
-import com.pzx.pointcloud.PointCloud;
-import com.pzx.utils.CloudJSUtils;
+import com.pzx.pointCloud.PointAttribute;
+import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
-import org.aopalliance.reflect.Class;
 import org.apache.commons.io.Charsets;
 import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggerFactory;
-import org.apache.spark.api.java.function.ForeachFunction;
 import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.api.java.UDF3;
-import org.apache.spark.sql.api.java.UDF4;
-import org.apache.spark.sql.expressions.Aggregator;
-import org.apache.spark.sql.expressions.UserDefinedAggregateFunction;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
-import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.storage.StorageLevel;
-import org.json4s.jackson.Json;
-import scala.Function1;
-import scala.Tuple2;
 
 import java.io.File;
 import java.util.*;

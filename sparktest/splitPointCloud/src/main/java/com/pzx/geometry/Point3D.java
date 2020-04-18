@@ -1,6 +1,4 @@
-package com.pzx.geom;
-
-import com.vividsolutions.jts.geom.Point;
+package com.pzx.geometry;
 
 import java.io.Serializable;
 

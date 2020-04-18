@@ -1,12 +1,12 @@
-package com.pzx.split;
+package com.pzx.dataSplit;
 
 import com.alibaba.fastjson.JSONObject;
 import com.pzx.HDFSUtils;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
-import com.pzx.las.LasFile;
-import com.pzx.las.LasFileHeader;
-import com.pzx.las.LasFilePointData;
+import com.pzx.lasFile.LasFile;
+import com.pzx.lasFile.LasFileHeader;
+import com.pzx.lasFile.LasFilePointData;
 import com.pzx.utils.LittleEndianUtils;
 
 import com.pzx.utils.CloudJSUtils;

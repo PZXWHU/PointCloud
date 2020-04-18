@@ -1,4 +1,4 @@
-package com.pzx.las;
+package com.pzx.lasFile;
 
 import com.pzx.utils.LittleEndianUtils;
 import org.apache.log4j.Logger;

@@ -1,6 +1,8 @@
-package com.pzx.pointcloud;
+package com.pzx.pointCloud;
 
-public enum PointAttribute {
+import java.io.Serializable;
+
+public enum PointAttribute implements Serializable {
 
     //POSITION_CARTESIAN:坐标x,y,z int型
     //RGBA_PACKED：颜色r,g,b,a  byte型

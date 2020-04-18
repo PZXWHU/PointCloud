@@ -1,12 +1,12 @@
-package com.pzx.split;
+package com.pzx.dataSplit;
 
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
-import com.pzx.geom.Cuboid;
-import com.pzx.geom.Point3D;
-import com.pzx.pointcloud.PointAttribute;
-import com.pzx.pointcloud.PointCloud;
+import com.pzx.geometry.Cuboid;
+import com.pzx.geometry.Point3D;
+import com.pzx.pointCloud.PointAttribute;
+import com.pzx.pointCloud.PointCloud;
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.utils.SparkUtils;
@@ -18,10 +18,7 @@ import org.apache.spark.rdd.PartitionPruningRDD;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Aggregator;
 import org.apache.spark.storage.StorageLevel;
-import scala.Function1;
 import scala.Tuple2;
-import scala.Tuple3;
-import scala.collection.Iterator;
 import scala.reflect.ClassManifestFactory;
 
 import java.io.File;
@@ -29,9 +26,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.apache.spark.sql.functions.*;
-import static org.apache.spark.sql.functions.col;
 
 /**
  * 根据正方体网格和八叉树进行点云LOD构建和数据分片

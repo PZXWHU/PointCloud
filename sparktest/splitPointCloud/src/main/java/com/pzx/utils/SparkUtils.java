@@ -1,13 +1,13 @@
 package com.pzx.utils;
 
 import com.google.common.base.Preconditions;
-import com.pzx.geom.Cuboid;
-import com.pzx.geom.Point3D;
+import com.pzx.geometry.Cuboid;
+import com.pzx.geometry.Point3D;
 import com.pzx.spatialPartition.OcTree;
 import com.pzx.spatialPartition.OcTreeNode;
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
-import com.pzx.split.LasSplit;
+import com.pzx.dataSplit.LasSplit;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
