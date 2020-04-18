@@ -137,7 +137,7 @@ public class TxtSplit1 {
         int maxLevel = SplitUtils.getMaxLevel(cloudJS.getLong("points"),pointNumPerNode,splitDimension);
         logger.info("----------------------------------------此次分片的最大层级为："+maxLevel);
 
-
+        //根据点坐标获取八叉树节点编码
         UserDefinedFunction getNodekey = udf(new UDF3<Double,Double,Double,String>() {
             @Override
             public String call(Double x, Double y, Double z) throws Exception {
@@ -148,14 +148,12 @@ public class TxtSplit1 {
             }
         }, DataTypes.StringType);
 
-
-
         sparkSession.udf().register("getNodekey", getNodekey);
 
         dataset.withColumn("nodekey",getNodekey.apply(col("x"),col("y"),col("z")))
                 //.groupByKey((Function1<Row, String>) row->row.getAs("nodekey"),Encoders.STRING())
                 //.groupBy("nodekey")
-                /**.agg(new Aggregator<Row,Row,Double>(){
+                /*.agg(new Aggregator<Row,Row,Double>(){
 
                     @Override
                     public Double finish(Row reduction) {
@@ -186,8 +184,8 @@ public class TxtSplit1 {
                     public Row merge(Row b1, Row b2) {
                         return null;
                     }
-                }.toColumn())*/
-
+                }.toColumn())
+                 */
                 .foreachPartition((ForeachPartitionFunction <Row>)(iterator)->{
                     Map<String,ArrayList<byte[]>> buffer = new HashMap<>();
                     while (iterator.hasNext()){

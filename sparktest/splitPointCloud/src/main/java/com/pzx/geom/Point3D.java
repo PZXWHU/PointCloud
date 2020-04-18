@@ -2,7 +2,9 @@ package com.pzx.geom;
 
 import com.vividsolutions.jts.geom.Point;
 
-public class Point3D implements WithCuboidMBR {
+import java.io.Serializable;
+
+public class Point3D implements WithCuboidMBR, Serializable {
 
     public double x;
     public double y;

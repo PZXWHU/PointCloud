@@ -3,7 +3,9 @@ package com.pzx.geom;
 
 import com.google.common.base.Preconditions;
 
-public class Cuboid implements WithCuboidMBR{
+import java.io.Serializable;
+
+public class Cuboid implements WithCuboidMBR, Serializable {
 
     private double minX;
     private double minY;
@@ -32,33 +34,42 @@ public class Cuboid implements WithCuboidMBR{
     }
 
     /**
+     * cover表示在other在内部，允许边界重合
+     * @param other
+     * @return
+     */
+    public boolean covers(Cuboid other){
+        return (other.maxX<=this.maxX && other.minX>=this.minX)&&
+                (other.maxY<=this.maxY && other.minY>=this.minY)&&
+                (other.maxZ<=this.maxZ && other.minZ>=this.minZ);
+    }
+
+    /**
      * contains包括与边界重合的点
      * @param point3D
      * @return
      */
     public boolean contains(Point3D point3D){
-        return (point3D.x<=maxX && point3D.x>=minX)&&
-                (point3D.y<=maxY && point3D.y>=minY)&&
-                (point3D.z<=maxZ && point3D.z>=minZ);
+        return contains(point3D.getCuboidMBR());
     }
 
     /**
-     * contains包括边界重合的长方体
+     * contain表示在other在内部，允许边界重合
+     * 与cover相同
      * @param other
      * @return
      */
     public boolean contains(Cuboid other){
-        return (other.maxX<=this.maxX && other.minX>=this.minX)&&
-                (other.maxY<=this.maxY && other.minY>=this.minY)&&
-                (other.maxZ<=this.maxZ && other.minZ>=this.minZ);
+        return covers(other);
     }
 
     public <T extends WithCuboidMBR> boolean contains(T other){
         return contains(other.getCuboidMBR());
     }
 
+
     /**
-     * intersects包括边界相交
+     * intersects包括边界重合、边界内部相交、包含关系
      * @param other
      * @return
      */
@@ -72,9 +83,23 @@ public class Cuboid implements WithCuboidMBR{
         return intersects(other.getCuboidMBR());
     }
 
+    /**
+     * disjoint表示边界、内部均没有相交
+     * @param other
+     * @return
+     */
+    public boolean disjoint(Cuboid other){
+        return !intersects(other);
+    }
+
+    public <T extends WithCuboidMBR> boolean disjoint(T other){
+        return disjoint(other.getCuboidMBR());
+    }
+
     public Point3D centerPoint(){
         return new Point3D((minX+maxX)/2 , (minY+maxY)/2 , (minZ+maxZ)/2);
     }
+
 
     /**
      * 将cuboid分为八个子cuboid
@@ -123,8 +148,9 @@ public class Cuboid implements WithCuboidMBR{
 
 
     public static void main(String[] args) {
-        Cuboid cuboid = new Cuboid(0,0,0,12,312,1224);
-        cuboid.split();
+        Cuboid cuboid = new Cuboid(0,0,0,50,50,50);
+        Cuboid cuboid1 = new Cuboid(2,2,2,49,49,49);
+        System.out.println(cuboid.intersects(cuboid1));
     }
 
     @Override
