@@ -9,9 +9,7 @@ import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 import javax.swing.text.DefaultEditorKit;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
@@ -32,6 +30,8 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
             root.insert(elements.next());
     }
 
+    /*-----------------------------------------------------------*/
+    //query
 
     public List<T> queryContains(Cuboid cuboid){
         List<T> resultElements = new ArrayList<>();
@@ -74,10 +74,37 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
     }
 
     /**
+     * 获得范围相交的叶子节点
+     * @param region
+     * @return
+     */
+    public <U extends WithCuboidMBR> List<Cuboid> findLeafNodeRegion(U region){
+        List<Cuboid> resultRegions = new ArrayList<>();
+        root.traverse(new Visitor<T>() {
+            @Override
+            public boolean visit(OcTreeNode<T> treeNode) {
+                if(treeNode.getRegion().disjoint(region)){
+                    return false;
+                }
+
+                if(treeNode.isLeafNode()){
+                    resultRegions.add(treeNode.getRegion());
+                }
+                return true;
+            }
+        });
+        return resultRegions;
+    }
+
+
+    /*-----------------------------------------------------------*/
+    //遍历获得叶节点信息
+
+    /**
      * 获取所有八叉树叶子节点的范围
      * @return
      */
-    public List<Cuboid> getAllLeafNodeRegion(){
+    public List<Cuboid> getLeafNodeRegions(){
         List<Cuboid> leafRegions = new ArrayList<>();
         root.traverse(new Visitor<T>() {
             @Override
@@ -91,27 +118,37 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
         return leafRegions;
     }
 
-    /**
-     * 获得范围相交的叶子节点
-     * @param region
-     * @return
-     */
-    public <U extends WithCuboidMBR> List<Cuboid> findLeafNodeRegion(U region){
-        List<Cuboid> resultRegions = new ArrayList<>();
+    public List<Long> getLeafNodeElementsNums(){
+        List<Long> leafElementsNum = new ArrayList<>();
         root.traverse(new Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
-                if(treeNode.getRegion().disjoint(region))
-                    return false;
                 if(treeNode.isLeafNode()){
-                    resultRegions.add(treeNode.getRegion());
+                    leafElementsNum.add(treeNode.getElementNum());
                 }
                 return true;
             }
         });
-        return resultRegions;
+        return leafElementsNum;
     }
 
+    public Map<Cuboid, Long> getLeafNodeRegionsAndElementsNums(){
+        Map<Cuboid, Long> leafRegionAndElementsNum = new HashMap();
+        root.traverse(new Visitor<T>() {
+            @Override
+            public boolean visit(OcTreeNode<T> treeNode) {
+                if(treeNode.isLeafNode()){
+                    leafRegionAndElementsNum.put(treeNode.getRegion(), treeNode.getElementNum());
+                }
+                return true;
+            }
+        });
+        return leafRegionAndElementsNum;
+    }
+
+
+    /*-----------------------------------------------------------*/
+    //获得整个八叉树的信息
 
     /**
      * 获得树中插入的所有要素的总数目
@@ -135,6 +172,8 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
         return level.getValue();
     }
 
+    /*-----------------------------------------------------------*/
+
     public OcTreeNode<T> getRootTreeNode(){return this.root;}
 
     public void printTree(){
@@ -150,6 +189,9 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
         });
 
     }
+
+    /*-----------------------------------------------------------*/
+    //访问者模式接口
 
     /**
      * 访问者模式
@@ -178,8 +220,6 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
         time = System.currentTimeMillis();
         System.out.println(ocTree.queryContains(new Cuboid(13,11,17,39,29,59)).size());
         System.out.println(System.currentTimeMillis() - time);
-
-
 
     }
 

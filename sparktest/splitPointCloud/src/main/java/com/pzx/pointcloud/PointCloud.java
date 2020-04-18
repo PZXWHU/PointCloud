@@ -1,33 +1,88 @@
 package com.pzx.pointcloud;
 
+import com.alibaba.fastjson.JSONObject;
+import com.google.common.base.Preconditions;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 public class PointCloud implements Serializable {
 
-    public long pointsNum;
+    public long points;
     public double[] tightBoundingBox;//maxx, maxy, maxz,minx,miny,minz
     public double[] boundingBox;//maxx, maxy, maxz,minx,miny,minz
     public List<PointAttribute> pointAttributes;
-    public double scale;
-    public long pointNumPerNode;
-    public int dimension;
-    public int maxLevel;
+    public double[] scales;
 
+    public static int maxX = 0;
+    public static int maxY = 1;
+    public static int maxZ = 2;
+    public static int minX = 3;
+    public static int minY = 4;
+    public static int minZ = 5;
 
     public PointCloud(){
-        tightBoundingBox = new double[6];
-        boundingBox = new double[6];
-        pointAttributes = new ArrayList<>();
+
     }
 
-    public long getPointsNum() {
-        return pointsNum;
+    public PointCloud(long points, double[] tightBoundingBox, List<PointAttribute> pointAttributes, double[] scales) {
+        Preconditions.checkArgument(tightBoundingBox[maxX]>=tightBoundingBox[minX] &&
+                tightBoundingBox[maxY]>tightBoundingBox[minY] && tightBoundingBox[maxZ]>tightBoundingBox[minZ]);
+        this.points = points;
+        this.tightBoundingBox = tightBoundingBox;
+        this.boundingBox = createBoundingBox(tightBoundingBox);
+        this.pointAttributes = pointAttributes;
+        this.scales = scales;
     }
 
-    public void setPointsNum(long pointsNum) {
-        this.pointsNum = pointsNum;
+    /**
+     * 由tightBoundingBox生成boundingBox
+     * @param tightBoundingBox
+     * @return
+     */
+    public double[] createBoundingBox(double[] tightBoundingBox){
+        Preconditions.checkArgument(tightBoundingBox.length%2 ==0,"tightBoundingBox数组长度必须是偶数");
+        int length = tightBoundingBox.length;
+        double[] boundingBox = new double[length];
+        //boundingBox
+        double boxSideLength = 0;
+        for(int i=0;i<length/2;i++){
+            boxSideLength = Math.max(tightBoundingBox[i]-tightBoundingBox[i+length/2],boxSideLength);
+        }
+        for(int i=0;i<length/2;i++){
+            boundingBox[i+length/2] = tightBoundingBox[i+length/2];
+            boundingBox[i] = boundingBox[i+length/2] +boxSideLength;
+        }
+        return boundingBox;
+    }
+
+    public JSONObject buildCloudJS(){
+        JSONObject cloudjs = new JSONObject();
+        cloudjs.put("points",points);
+
+        JSONObject tightBoundingBoxJson = new JSONObject();
+        tightBoundingBoxJson.put("ux",tightBoundingBox[0]);
+        tightBoundingBoxJson.put("uy",tightBoundingBox[1]);
+        tightBoundingBoxJson.put("uz",tightBoundingBox[2]);
+        tightBoundingBoxJson.put("lx",tightBoundingBox[3]);
+        tightBoundingBoxJson.put("ly",tightBoundingBox[4]);
+        tightBoundingBoxJson.put("lz",tightBoundingBox[5]);
+        cloudjs.put("tightBoundingBox",tightBoundingBoxJson);
+
+        JSONObject boundingBoxJson = new JSONObject();
+        boundingBoxJson.put("ux",boundingBox[0]);
+        boundingBoxJson.put("uy",boundingBox[1]);
+        boundingBoxJson.put("uz",boundingBox[2]);
+        boundingBoxJson.put("lx",boundingBox[3]);
+        boundingBoxJson.put("ly",boundingBox[4]);
+        boundingBoxJson.put("lz",boundingBox[5]);
+        cloudjs.put("boundingBox",boundingBoxJson);
+
+        cloudjs.put("scale",scales);
+
+        cloudjs.put("pointAttributes",pointAttributes);
+        return cloudjs;
     }
 
     public double[] getTightBoundingBox() {
@@ -54,37 +109,11 @@ public class PointCloud implements Serializable {
         this.pointAttributes = pointAttributes;
     }
 
-    public double getScale() {
-        return scale;
-    }
+    public long getPoints() { return points; }
 
-    public void setScale(double scale) {
-        this.scale = scale;
-    }
+    public void setPoints(long points) { this.points = points; }
 
-    public long getPointNumPerNode() {
-        return pointNumPerNode;
-    }
+    public double[] getScales() { return scales; }
 
-    public void setPointNumPerNode(long pointNumPerNode) {
-        this.pointNumPerNode = pointNumPerNode;
-    }
-
-    public int getDimension() {
-        return dimension;
-    }
-
-    public void setDimension(int dimension) {
-        this.dimension = dimension;
-    }
-
-    public int getMaxLevel() {
-        return maxLevel;
-    }
-
-    public void setMaxLevel(int maxLevel) {
-        this.maxLevel = maxLevel;
-    }
-
-
+    public void setScales(double[] scales) { this.scales = scales; }
 }

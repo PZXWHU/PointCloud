@@ -16,7 +16,7 @@ public class Cuboid implements WithCuboidMBR, Serializable {
 
     public Cuboid(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         Preconditions.checkArgument(minX<=maxX && minY<=maxY && minZ<=maxZ,
-                "the first three parameters must be smaller than the last three！");
+                "the first three parameters must be smaller than the last three！" );
         this.minX = minX;
         this.minY = minY;
         this.minZ = minZ;
@@ -74,6 +74,7 @@ public class Cuboid implements WithCuboidMBR, Serializable {
      * @return
      */
     public boolean intersects(Cuboid other){
+
         return (other.minX<=this.maxX && other.maxX>=this.minX)&&
                 (other.minY<=this.maxY && other.maxY>=this.minY)&&
                 (other.minZ<=this.maxZ && other.maxZ>=this.minZ);
@@ -106,29 +107,6 @@ public class Cuboid implements WithCuboidMBR, Serializable {
      * @return
      */
     public Cuboid[] split(){
-        /*
-        Cuboid[] childrenCuboid = new Cuboid[8];
-
-        Point3D centerPoint3D = centerPoint();
-        double midX = centerPoint3D.x;
-        double midY = centerPoint3D.y;
-        double midZ = centerPoint3D.z;
-
-        double xLength = (maxX - minX) / 2;
-        double yLength = (maxY - minY) / 2;
-        double zLength = (maxZ - minZ) / 2;
-
-        childrenCuboid[REGION_SX_SY_SZ] = new Cuboid(new Point3D(minX,minY,minZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_BX_SY_SZ] = new Cuboid(new Point3D(midX,minY,minZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_SX_BY_SZ] = new Cuboid(new Point3D(minX,midY,minZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_BX_BY_SZ] = new Cuboid(new Point3D(midX,midY,minZ),xLength,yLength,zLength);
-
-        childrenCuboid[REGION_SX_SY_BZ] = new Cuboid(new Point3D(minX,minY,midZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_BX_SY_BZ] = new Cuboid(new Point3D(midX,minY,midZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_SX_BY_BZ] = new Cuboid(new Point3D(minX,midY,midZ),xLength,yLength,zLength);
-        childrenCuboid[REGION_BX_BY_BZ] = new Cuboid(new Point3D(midX,midY,midZ),xLength,yLength,zLength);
-
-         */
 
         double childXLength = (maxX - minX) / 2;
         double childYLength = (maxY - minY) / 2;
@@ -146,12 +124,21 @@ public class Cuboid implements WithCuboidMBR, Serializable {
         return childrenCuboid;
     }
 
-
-    public static void main(String[] args) {
-        Cuboid cuboid = new Cuboid(0,0,0,50,50,50);
-        Cuboid cuboid1 = new Cuboid(2,2,2,49,49,49);
-        System.out.println(cuboid.intersects(cuboid1));
+    /**
+     *向外扩张0.1
+     * @param
+     * @return
+     */
+    public Cuboid expandLittle(){
+        minX = minX - 0.1;
+        minY = minY - 0.1;
+        minZ = minZ - 0.1;
+        maxX = maxX + 0.1;
+        maxY = maxY + 0.1;
+        maxZ = maxZ + 0.1;
+        return this;
     }
+
 
     @Override
     public Cuboid getCuboidMBR() {

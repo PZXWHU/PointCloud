@@ -18,36 +18,6 @@ public class IOUtils {
 
     private static Logger logger = Logger.getLogger(IOUtils.class);
 
-/*
-    public static DataOutputStream getDataOutputStream (String outputFilePath,boolean append)throws IOException {
-        DataOutputStream dataOutputStream = null;
-        if(outputFilePath.startsWith("hdfs://")){
-
-            Configuration conf = new Configuration();
-            conf.set("fs.defaultFS", "hdfs://master:9000");
-            conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
-            FileSystem fileSystem = FileSystem.get(conf);
-
-            if (append&&fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))){
-                dataOutputStream = fileSystem.append(new org.apache.hadoop.fs.Path(outputFilePath));
-            }else if(!fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))) {
-                dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath));
-            }else {
-                dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath),true);
-            }
-            return dataOutputStream;
-
-
-        }else{
-            FileOutputStream fileOutputStream = new FileOutputStream(outputFilePath,append);
-            dataOutputStream = new DataOutputStream(fileOutputStream);
-        }
-
-        return dataOutputStream;
-    }
-
-
- */
 
 
     public static DataOutputStream getDataOutputStream (String outputFilePath,boolean append)throws IOException{
@@ -86,42 +56,8 @@ public class IOUtils {
             dataOutputStream.write(data);
             dataOutputStream.close();
         }catch (IOException e){
-            e.printStackTrace();
-            logger.warn("数据写入文件失败！");
+            throw new RuntimeException("写文件失败！");
         }
-        /*
-
-        try {
-            DataOutputStream dataOutputStream = null;
-            if(outputFilePath.startsWith("hdfs://")){
-
-                FileSystem fileSystem = HDFSUtils.getFileSystem();
-
-                if (append&&fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))){
-                    //追加模式且hdfs已经存在此文件
-                    dataOutputStream = fileSystem.append(new org.apache.hadoop.fs.Path(outputFilePath));
-                }else if(!fileSystem.exists(new org.apache.hadoop.fs.Path(outputFilePath))) {
-                    //hdfs不存在此文件
-                    dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath));
-                }else {
-                    //hdfs不存在此文件且追加模式
-                    dataOutputStream = fileSystem.create(new org.apache.hadoop.fs.Path(outputFilePath),true);
-                }
-                dataOutputStream.write(data);
-                dataOutputStream.close();
-
-            }else{
-                FileOutputStream fileOutputStream = new FileOutputStream(outputFilePath,append);
-                dataOutputStream = new DataOutputStream(fileOutputStream);
-                dataOutputStream.write(data);
-                dataOutputStream.close();
-            }
-        }catch (IOException e){
-            e.printStackTrace();
-            logger.warn("数据写入文件失败！");
-        }
-
-         */
 
     }
 
@@ -136,7 +72,7 @@ public class IOUtils {
             dataOutputStream.close();
         }catch (IOException e){
             e.printStackTrace();
-            logger.warn("数据写入文件失败！");
+            throw new RuntimeException("写文件失败！");
         }
     }
 
@@ -150,7 +86,7 @@ public class IOUtils {
             dataOutputStream.close();
         }catch (IOException e){
             e.printStackTrace();
-            logger.warn("数据写入文件失败！");
+            throw new RuntimeException("写文件失败！");
         }
     }
 

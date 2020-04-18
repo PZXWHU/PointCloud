@@ -22,12 +22,11 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
 
     public OcTreePartitioner(OcTree<? extends WithCuboidMBR> ocTree) {
         this.ocTree = ocTree;
-        this.partitionRegions = ocTree.getAllLeafNodeRegion();
-        long time = System.currentTimeMillis();
+        this.partitionRegions = ocTree.getLeafNodeRegions();
         for(int partitionID =0 ; partitionID<partitionRegions.size(); partitionID++){
             partitionRegionIDMap.put(partitionRegions.get(partitionID), partitionID);
         }
-        System.out.println("构造需时间："+(System.currentTimeMillis()-time));
+
     }
 
     /**
@@ -36,14 +35,15 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
      * @param <T>
      * @return
      */
-    public <T extends WithCuboidMBR> Tuple2<Integer, T> placeObject(T spatialObject){
+    public <T extends WithCuboidMBR> Integer findPartitionIDForObject(T spatialObject){
         Preconditions.checkNotNull(spatialObject);
         //用MBR中心点获得所属分区，保证只属于一个分区
+
         List<Cuboid> resultRegions = ocTree.findLeafNodeRegion(spatialObject.getCuboidMBR().centerPoint());
         Integer partitionID = partitionRegionIDMap.get(resultRegions.get(0));
         if (partitionID == null)
             throw new RuntimeException("can not find partition for the spatialObject!");
-        return new Tuple2<Integer, T>(partitionID, spatialObject);
+        return partitionID;
     }
 
     @Override

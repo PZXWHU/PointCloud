@@ -51,8 +51,8 @@ public class TxtSplit
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
 
 
-
-
+        PointCloud pointCloud = null;
+        /*
         PointCloud pointCloud = new PointCloud();
         //pointCloud基本初始化
         pointCloud.setDimension(3);
@@ -61,6 +61,10 @@ public class TxtSplit
         List<PointAttribute> pointAttributes = new ArrayList<>();
         pointAttributes.add(PointAttribute.POSITION_CARTESIAN);
         pointCloud.setPointAttributes(pointAttributes);
+        
+         */
+        
+        
 
 
         //filePath: 本地地址和hdfs地址均可，使用textFile读取
@@ -163,7 +167,7 @@ public class TxtSplit
         //设置pointCloud的一些属性
         pointCloud.setTightBoundingBox(new double[]{maxx, maxy, maxz,minx,miny,minz});
         pointCloud.setBoundingBox(new double[]{newMaxx, newMaxy, newMaxz,minx,miny,minz});
-        pointCloud.setPointsNum(pointNum);
+        pointCloud.setPoints(pointNum);
 
 
         JSONObject cloudJSObject = new JSONObject();
@@ -225,7 +229,7 @@ public class TxtSplit
      */
     public static JavaPairRDD<String,List<Object[]>> createnRDDGroupByNodeKey(PointCloud pointCloud,JavaRDD<String[]> pointAttributeRDD){
         //计算一些数值用于spark计算
-        int maxLevel = SplitUtils.getMaxLevel(pointCloud.getPointsNum(),pointCloud.getPointNumPerNode(),pointCloud.getDimension());
+        int maxLevel = SplitUtils.getMaxLevel(pointCloud.getPoints(),pointCloud.getPointNumPerNode(),pointCloud.getDimension());
         pointCloud.setMaxLevel(maxLevel);
         int dimension = pointCloud.getDimension();
         double[] boundingBox = pointCloud.getBoundingBox();
@@ -371,3 +375,4 @@ public class TxtSplit
 
 
 }
+

@@ -22,6 +22,10 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+/**
+ * 利用CLOD公式和八叉树进行LOD构建和数据分片
+ * 微批量流式处理
+ */
 public class LasSplit {
 
     private static Logger logger = Logger.getLogger(LasSplit.class);
@@ -130,7 +134,7 @@ public class LasSplit {
      * @param outputDirPath 输出目录
      */
     public static void splitPointCloud(List<String> lasFilePathList,JSONObject cloudjs,String outputDirPath){
-        JavaSparkContext sc = SparkUtils.scInit();
+        JavaSparkContext sc = SparkUtils.sparkContextInit();
 
         /* 使用pointBytesList
         List<byte[]> pointBytesList = new ArrayList<>();

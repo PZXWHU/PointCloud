@@ -4,10 +4,13 @@ import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
+import com.pzx.pointcloud.PointAttribute;
+import com.pzx.pointcloud.PointCloud;
 import com.pzx.utils.CloudJSUtils;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
 import org.aopalliance.reflect.Class;
+import org.apache.commons.io.Charsets;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggerFactory;
 import org.apache.spark.api.java.function.ForeachFunction;
@@ -31,6 +34,9 @@ import java.util.stream.Collectors;
 
 import static org.apache.spark.sql.functions.*;
 
+/**
+ * 直接用CLOD公式和八叉树进行点云LOD构建和数据分片
+ */
 public class TxtSplit1 {
 
     private static Logger logger = Logger.getLogger(TxtSplit1.class);
@@ -47,7 +53,7 @@ public class TxtSplit1 {
         //生成结果输出路径
         String outputDirPath = args[1];
         //初始化SparkSession
-        sparkSession = SparkUtils.ssInit();
+        sparkSession = SparkUtils.sparkSessionInit();
 
 
         long time = System.currentTimeMillis();
@@ -63,11 +69,11 @@ public class TxtSplit1 {
         dataset.persist(StorageLevel.MEMORY_AND_DISK_SER());
 
         //创建cloud.js文件
-        JSONObject cloudJS = createCloudJS(dataset,outputDirPath);
+        PointCloud pointCloud = createCloudJS(dataset,outputDirPath);
         logger.info("-----------------------------------生成点云信息文件cloud.js");
 
         //切分点云
-        splitPointCloud(dataset,cloudJS,outputDirPath);
+        splitPointCloud(dataset,pointCloud,outputDirPath);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
 
         //创建索引文件
@@ -86,7 +92,7 @@ public class TxtSplit1 {
      * @param outputDirPath
      * @return
      */
-    public static JSONObject createCloudJS(Dataset<Row> dataset, String  outputDirPath){
+    public static PointCloud createCloudJS(Dataset<Row> dataset, String  outputDirPath){
 
 
         Dataset<Row> cloudJSDataSet  = dataset.select(max("x"),max("y"),max("z"),
@@ -96,45 +102,37 @@ public class TxtSplit1 {
         long points = cloudJSRow.getLong(6);
         double[] tightBoundingBox =  new double[]{cloudJSRow.getDouble(0),cloudJSRow.getDouble(1),cloudJSRow.getDouble(2),
                 cloudJSRow.getDouble(3),cloudJSRow.getDouble(4),cloudJSRow.getDouble(5)};
-        double[] boundingBox = CloudJSUtils.getBoundingBox(tightBoundingBox);
 
-        double[] scale = new double[]{0.001,0.001,0.001};
+        double[] scales = new double[]{0.001,0.001,0.001};
 
-        String[] pointAttributes = new String[]{"POSITION_CARTESIAN","RGB_PACKED"};
-        JSONObject cloudJS = CloudJSUtils.buildCloudJS(points,tightBoundingBox,boundingBox,scale,pointAttributes);
+        List<PointAttribute> pointAttributes = Arrays.asList(PointAttribute.POSITION_XYZ, PointAttribute.RGB) ;
+        PointCloud pointCloud = new PointCloud(points,tightBoundingBox,pointAttributes,scales);
+        JSONObject cloudJS = pointCloud.buildCloudJS();
 
-        try {
-            IOUtils.writerDataToFile(outputDirPath+ File.separator+"cloud.js",cloudJS.toJSONString().getBytes("utf-8"),false);
-        }catch (Exception e){
-            e.printStackTrace();
-            throw new RuntimeException("cloud.js文件生成失败");
-        }
-        return cloudJS;
+        IOUtils.writerDataToFile(outputDirPath+ File.separator+"cloud.js",cloudJS.toJSONString().getBytes(Charsets.UTF_8),false);
+        return pointCloud;
 
     }
 
-    public static void splitPointCloud(Dataset<Row> dataset, JSONObject cloudJS,String outputDirPath){
+    public static void splitPointCloud(Dataset<Row> dataset, PointCloud pointCloud,String outputDirPath){
 
         //广播变量
-        JSONObject boundingBoxJson = cloudJS.getJSONObject("boundingBox");
-        double[] boundingBox = new double[]{boundingBoxJson.getDoubleValue("ux"),boundingBoxJson.getDoubleValue("uy"),boundingBoxJson.getDoubleValue("uz"),
-                boundingBoxJson.getDoubleValue("lx"),boundingBoxJson.getDoubleValue("ly"),boundingBoxJson.getDoubleValue("lz")};
-        double[] scale = (double[])cloudJS.get("scale");
-
+        double[] boundingBox = pointCloud.getBoundingBox();
+        double[] scale = pointCloud.getScales();
 
         //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
-        JSONObject tightBoundingBoxJson = cloudJS.getJSONObject("tightBoundingBox");
+        double[] tightBoundingBox = pointCloud.getTightBoundingBox();
 
 
-        if((tightBoundingBoxJson.getDoubleValue("ux")-tightBoundingBoxJson.getDoubleValue("lx"))<(boundingBox[0]-boundingBox[3])/3.0||
-                (tightBoundingBoxJson.getDoubleValue("uy")-tightBoundingBoxJson.getDoubleValue("ly"))<(boundingBox[0]-boundingBox[3])/3.0||
-                (tightBoundingBoxJson.getDoubleValue("uz")-tightBoundingBoxJson.getDoubleValue("lz"))<(boundingBox[0]-boundingBox[3])/3.0){
+        if((tightBoundingBox[0]-tightBoundingBox[3])<(boundingBox[0]-boundingBox[3])/3.0||
+                (tightBoundingBox[1]-tightBoundingBox[4])<(boundingBox[0]-boundingBox[3])/3.0||
+                (tightBoundingBox[2]-tightBoundingBox[5])<(boundingBox[0]-boundingBox[3])/3.0){
             dimension = 2;
 
         }
         final int splitDimension = dimension;
         logger.info("----------------------------------------此次分片的维度为："+splitDimension);
-        int maxLevel = SplitUtils.getMaxLevel(cloudJS.getLong("points"),pointNumPerNode,splitDimension);
+        int maxLevel = SplitUtils.getMaxLevel(pointCloud.getPoints(),pointNumPerNode,splitDimension);
         logger.info("----------------------------------------此次分片的最大层级为："+maxLevel);
 
         //根据点坐标获取八叉树节点编码

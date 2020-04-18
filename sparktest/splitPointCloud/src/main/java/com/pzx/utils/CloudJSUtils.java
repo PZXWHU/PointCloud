@@ -4,6 +4,9 @@ import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
 
+/**
+ * @deprecated
+ */
 public class CloudJSUtils {
 
     /**

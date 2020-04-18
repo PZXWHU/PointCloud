@@ -6,11 +6,9 @@ public enum PointAttribute {
     //RGBA_PACKED：颜色r,g,b,a  byte型
     //RGB_PACKED：颜色r,g,b  byte型
     //Clod : float型
-    POSITION_CARTESIAN(3*32),
-    RGBA_PACKED(4*8),
-    RGB_PACKED(3*8),
-    INTENSITY(16),
-    CLOD(32);
+    POSITION_XYZ(3*4),
+    RGB(3),
+    LEVEL(1);
 
     //属性所占字节数
     private int bytesCount;

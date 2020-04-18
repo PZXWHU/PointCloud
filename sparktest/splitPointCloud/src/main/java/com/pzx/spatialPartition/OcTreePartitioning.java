@@ -4,10 +4,11 @@ import com.pzx.geom.Cuboid;
 import com.pzx.geom.Point3D;
 import com.pzx.geom.WithCuboidMBR;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class OcTreePartitioning {
+public class OcTreePartitioning implements Serializable {
 
     private OcTree<WithCuboidMBR> ocTree;
 
@@ -21,6 +22,7 @@ public class OcTreePartitioning {
         for(WithCuboidMBR sample : samples){
             ocTree.insert(sample);
         }
+
     }
 
     public OcTreePartitioner getPartitioner(){
@@ -28,6 +30,7 @@ public class OcTreePartitioning {
     }
 
     public OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
+
 
     public static void main(String[] args) {
         List<Point3D> point3DS = new ArrayList<>();

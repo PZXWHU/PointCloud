@@ -1,6 +1,12 @@
 package com.pzx.utils;
 
 import com.google.common.base.Preconditions;
+import com.pzx.geom.Cuboid;
+import com.pzx.geom.Point3D;
+import com.pzx.spatialPartition.OcTree;
+import com.pzx.spatialPartition.OcTreeNode;
+import com.pzx.spatialPartition.OcTreePartitioner;
+import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.split.LasSplit;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
@@ -46,15 +52,29 @@ public class SparkUtils {
         return sparkConf;
     }
 
+    public static void registerMyKryoClasses(SparkConf sparkConf){
+        Class[] classesToRegister = new Class[]{
+                Cuboid.class,
+                Point3D.class,
+                OcTree.class,
+                OcTreeNode.class,
+                OcTreePartitioner.class,
+                OcTreePartitioning.class
+
+        };
+        sparkConf.registerKryoClasses(classesToRegister);
+
+    }
 
     /**
      * 初始化JavaSparkContext
      * @return
      */
-    public static JavaSparkContext scInit(){
+    public static JavaSparkContext sparkContextInit(){
 
         SparkConf sparkConf = loadSparkConf("spark.conf");
         Preconditions.checkNotNull(sparkConf);
+        registerMyKryoClasses(sparkConf);
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
         return sc;
 
@@ -64,14 +84,23 @@ public class SparkUtils {
      * 初始化SparkSession
      * @return
      */
-    public static SparkSession ssInit(){
+    public static SparkSession sparkSessionInit(){
 
         SparkConf sparkConf = loadSparkConf("spark.conf");
         Preconditions.checkNotNull(sparkConf);
+        registerMyKryoClasses(sparkConf);
         SparkSession spark = SparkSession.builder().config(sparkConf).getOrCreate();
         return spark;
 
     }
 
+    public static SparkSession localSparkSessionInit(){
+        SparkConf sparkConf = loadSparkConf("spark.conf");
+        Preconditions.checkNotNull(sparkConf);
+        sparkConf.set("spark.master","local[*]");
+        sparkConf.set("spark.app.name","localTestApp");
+        SparkSession spark = SparkSession.builder().config(sparkConf).getOrCreate();
+        return spark;
+    }
 
 }
