@@ -29,19 +29,8 @@ public class OcTreePartitioning implements Serializable {
         return new OcTreePartitioner(ocTree);
     }
 
-    public OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
+    private OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
 
 
-    public static void main(String[] args) {
-        List<Point3D> point3DS = new ArrayList<>();
-        for(int i =0 ; i<1000000 ; i++){
-            point3DS.add(new Point3D(Math.random()*100,Math.random()*100,Math.random()*100));
-        }
-        OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(point3DS,new Cuboid(0,0,0,100,100,100),48);
-        OcTreePartitioner ocTreePartitioner = ocTreePartitioning.getPartitioner();
-
-        System.out.println(ocTreePartitioning.getOcTree().queryContains(new Cuboid(0,0,0,10,10,10)));
-
-    }
 
 }

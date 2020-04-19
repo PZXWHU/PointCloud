@@ -1,6 +1,10 @@
 package com.pzx.geometry;
 
 
+
+
+
+
 import com.google.common.base.Preconditions;
 
 import java.io.Serializable;
@@ -13,6 +17,7 @@ public class Cuboid implements WithCuboidMBR, Serializable {
     private double maxX;
     private double maxY;
     private double maxZ;
+
 
     public Cuboid(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         Preconditions.checkArgument(minX<=maxX && minY<=maxY && minZ<=maxZ,
@@ -139,6 +144,43 @@ public class Cuboid implements WithCuboidMBR, Serializable {
         return this;
     }
 
+    public double[] getBoundingBox(){return new double[]{maxX, maxY, maxZ, minX, minY, minZ};}
+
+    public double getXSideLength(){
+        return maxX-minX;
+    }
+
+    public double getYSideLength(){
+        return maxY-minY;
+    }
+
+    public double getZSideLength(){
+        return maxZ-minZ;
+    }
+
+    public double getMinX() {
+        return minX;
+    }
+
+    public double getMinY() {
+        return minY;
+    }
+
+    public double getMinZ() {
+        return minZ;
+    }
+
+    public double getMaxX() {
+        return maxX;
+    }
+
+    public double getMaxY() {
+        return maxY;
+    }
+
+    public double getMaxZ() {
+        return maxZ;
+    }
 
     @Override
     public Cuboid getCuboidMBR() {

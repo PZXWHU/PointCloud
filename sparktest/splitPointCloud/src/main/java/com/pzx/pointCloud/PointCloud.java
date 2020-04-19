@@ -3,6 +3,7 @@ package com.pzx.pointCloud;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 
+
 import java.io.Serializable;
 import java.util.List;
 
@@ -40,7 +41,7 @@ public class PointCloud implements Serializable {
      * @param tightBoundingBox
      * @return
      */
-    public double[] createBoundingBox(double[] tightBoundingBox){
+    public static double[] createBoundingBox(double[] tightBoundingBox){
         Preconditions.checkArgument(tightBoundingBox.length%2 ==0,"tightBoundingBox数组长度必须是偶数");
         int length = tightBoundingBox.length;
         double[] boundingBox = new double[length];

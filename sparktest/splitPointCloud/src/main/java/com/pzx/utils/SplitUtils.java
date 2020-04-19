@@ -2,6 +2,7 @@ package com.pzx.utils;
 
 
 
+import com.pzx.geometry.Point3D;
 import org.apache.log4j.Logger;
 
 
@@ -70,6 +71,11 @@ public class SplitUtils {
         return getNodeName(xLocation,yLocation,zLocation);
 
     }
+
+    public static String getOctreeNodeName(Point3D point3D,double[] boundingBox, double clod){
+        return getOctreeNodeName(point3D.x, point3D.y, point3D.z, boundingBox, clod);
+    }
+
 
 
     /**

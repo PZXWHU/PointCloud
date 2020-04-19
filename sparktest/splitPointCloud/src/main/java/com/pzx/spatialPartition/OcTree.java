@@ -11,10 +11,12 @@ import java.util.*;
 public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     private OcTreeNode<T> root;
+    private Cuboid region;
     private int treeLevel;
 
     public OcTree(Cuboid region , long maxElementsPerNode , int maxLevel){
         this.root = new OcTreeNode(region , maxElementsPerNode , maxLevel);
+        this.region = region;
 
     }
 
@@ -32,7 +34,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public List<T> queryContains(Cuboid cuboid){
         List<T> resultElements = new ArrayList<>();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.getRegion().disjoint(cuboid))
@@ -52,7 +54,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public List<T> queryIntersects(Cuboid cuboid){
         List<T> resultElements = new ArrayList<>();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.getRegion().disjoint(cuboid))
@@ -77,7 +79,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
      */
     public <U extends WithCuboidMBR> List<Cuboid> findLeafNodeRegion(U region){
         List<Cuboid> resultRegions = new ArrayList<>();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.getRegion().disjoint(region)){
@@ -103,7 +105,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
      */
     public List<Cuboid> getLeafNodeRegions(){
         List<Cuboid> leafRegions = new ArrayList<>();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.isLeafNode()){
@@ -117,7 +119,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public List<Long> getLeafNodeElementsNums(){
         List<Long> leafElementsNum = new ArrayList<>();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.isLeafNode()){
@@ -131,7 +133,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public Map<Cuboid, Long> getLeafNodeRegionsAndElementsNums(){
         Map<Cuboid, Long> leafRegionAndElementsNum = new HashMap();
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.isLeafNode()){
@@ -157,7 +159,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public int getTreeLevel(){
         MutableInt level = new MutableInt(0);
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.isLeafNode()) {
@@ -173,9 +175,11 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     public OcTreeNode<T> getRootTreeNode(){return this.root;}
 
+    public Cuboid getRegion(){return region;}
+
     public void printTree(){
 
-        root.traverse(new Visitor<T>() {
+        root.traverse(new OcTreeNode.Visitor<T>() {
             @Override
             public boolean visit(OcTreeNode<T> treeNode) {
                 if(treeNode.isLeafNode()) {
@@ -188,21 +192,7 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
     }
 
     /*-----------------------------------------------------------*/
-    //访问者模式接口
 
-    /**
-     * 访问者模式
-     * @param <U>
-     */
-    interface Visitor<U extends WithCuboidMBR>{
-        /**
-         * Visits a single node of the tree
-         *
-         * @param treeNode Node to visit
-         * @return true to continue traversing the tree; false to stop
-         */
-        boolean visit(OcTreeNode<U> treeNode);
-    }
 
     public static void main(String[] args) {
         OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),10000,40);

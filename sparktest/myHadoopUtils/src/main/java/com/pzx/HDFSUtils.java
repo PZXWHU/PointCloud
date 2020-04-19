@@ -44,11 +44,7 @@ public class HDFSUtils {
      */
     public static FileSystem getFileSystem(){
         //FileSystem fileSystem = HDFSUtils.init();
-        return HDFSUtils.init();
-    }
-
-    public static void write(){
-
+        return init();
     }
 
     public static void close(FileSystem hdfsFs){

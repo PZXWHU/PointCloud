@@ -121,11 +121,27 @@ public class OcTreeNode<T extends WithCuboidMBR> implements Serializable {
     public List<OcTreeNode<T>> getChildren(){return this.children;}
 
 
+    //访问者模式接口
+
+    /**
+     * 访问者模式
+     * @param <U>
+     */
+    interface Visitor<U extends WithCuboidMBR>{
+        /**
+         * Visits a single node of the tree
+         *
+         * @param treeNode Node to visit
+         * @return true to continue traversing the tree; false to stop
+         */
+        boolean visit(OcTreeNode<U> treeNode);
+    }
+
     /**
      * Traverses the tree top-down breadth-first and calls the visitor
      * for each node. Stops traversing if a call to visit returns false.
      */
-    void traverse(OcTree.Visitor<T> visitor)
+    void traverse(Visitor<T> visitor)
     {
         if (!visitor.visit(this)) {
             return;

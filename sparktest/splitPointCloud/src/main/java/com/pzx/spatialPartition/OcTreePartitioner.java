@@ -5,6 +5,7 @@ import com.pzx.geometry.Cuboid;
 import com.pzx.geometry.WithCuboidMBR;
 import org.apache.spark.Partitioner;
 
+
 import scala.Serializable;
 
 import java.util.HashMap;
@@ -50,6 +51,12 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
     public int numPartitions() {
         return partitionRegions.size();
     }
+
+    public List<Cuboid> getPartitionRegions(){ return this.partitionRegions;}
+
+    //public OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
+
+    public Cuboid getPartitionsTotalRegions(){return ocTree.getRegion();}
 
     public void printPartition(){
         for(Map.Entry<Cuboid, Integer> entry : partitionRegionIDMap.entrySet()){
