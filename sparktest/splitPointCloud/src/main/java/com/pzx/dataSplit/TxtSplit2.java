@@ -3,10 +3,7 @@ package com.pzx.dataSplit;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
-import com.pzx.geometry.Cube;
-import com.pzx.geometry.Cuboid;
-import com.pzx.geometry.Grid3D;
-import com.pzx.geometry.Point3D;
+import com.pzx.geometry.*;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.spatialPartition.OcTreePartitioner;
@@ -18,13 +15,10 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.PartitionPruningRDD;
-import org.apache.spark.rdd.PartitionPruningRDD$;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Aggregator;
-import org.apache.spark.sql.sources.In;
 import org.apache.spark.storage.StorageLevel;
 import scala.Function1;
-import scala.Function2;
 import scala.Tuple2;
 
 import scala.reflect.ClassManifestFactory;
@@ -55,9 +49,11 @@ public class TxtSplit2 {
         //生成结果输出路径
         String outputDirPath = args[1];
         //初始化SparkSession
-        sparkSession = SparkUtils.localSparkSessionInit();
+        sparkSession = SparkUtils.sparkSessionInit();
 
+        long totalTime = System.currentTimeMillis();
         long time = System.currentTimeMillis();
+        logger.info("-----------------------------------此次分片任务开始");
 
         //读取数据
         Dataset<Row> originDataset = sparkSession.read()
@@ -84,16 +80,19 @@ public class TxtSplit2 {
 
         //创建cloud.js文件
         PointCloud pointCloud = TxtSplit1.createCloudJS(originDataset,outputDirPath);
-        logger.info("-----------------------------------生成点云信息文件cloud.js");
+        logger.info("-----------------------------------生成点云信息文件cloud.js, 耗时："+(System.currentTimeMillis()-time));
 
+        time = System.currentTimeMillis();
         //切分点云
         splitPointCloud(point3DDataset,pointCloud,outputDirPath);
-        logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
+        logger.info("-----------------------------------点云分片任务完成，bin文件全部生成, 耗时："+(System.currentTimeMillis()-time));
 
+        time = System.currentTimeMillis();
         //创建索引文件
-        TxtSplit1.createHrcFile(outputDirPath);
-        logger.info("-----------------------------------生成索引文件r.hrc");
-        logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
+        LasSplit.createHrcFile(outputDirPath);
+        logger.info("-----------------------------------生成索引文件r.hrc, 耗时："+(System.currentTimeMillis()-time));
+
+        logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-totalTime));
 
         sparkSession.stop();
         sparkSession.close();
@@ -185,12 +184,15 @@ public class TxtSplit2 {
         JavaRDD<Point3D> partitionedRDD = partitionedResultTuple._1;
         OcTreePartitioner ocTreePartitioner = partitionedResultTuple._2;
 
-
         JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDD);
+        System.out.println("重分区之后的RDD的分区数："+ partitionedRDD.partitions().size());
+        System.out.println("剪枝优化之后的RDD的分区数："+ prunedRDDWithOriginalPartitionID.partitions().size());
+
         List<Cuboid> partitionRegions = ocTreePartitioner.getPartitionRegions();
         Cuboid partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions();
+
         //初始网格一个坐标轴的单元数,网格单元边长
-        int initGridOneSideCellNum = 1 << 8;
+        int initGridOneSideCellNum = 1 << 5;
         double initGridCellSideLength = partitionsTotalRegion.getXSideLength() / initGridOneSideCellNum;
         double[] partitionBoundingBox = partitionsTotalRegion.getBoundingBox();
 
@@ -203,17 +205,15 @@ public class TxtSplit2 {
             Cuboid partitionRegion = partitionRegionsBroadcast.getValue().get(pointWithOriginalPartitionID._1);
             Grid3D grid3D = new Grid3D(partitionRegion, initGridCellSideLength);
 
-            grid3D.inset(pointWithOriginalPartitionID._2);
+            grid3D.insert(pointWithOriginalPartitionID._2);
             while (iterator.hasNext()){
-                grid3D.inset(iterator.next()._2);
+                grid3D.insert(iterator.next()._2);
             }
 
             grid3D.shardToFile(partitionBoundingBox,coordinatesScale,outputDirPath);
 
             return Collections.emptyIterator();
         }, true).foreach(o -> {});
-
-
 
 
     }

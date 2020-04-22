@@ -31,6 +31,7 @@ public class DataImport
 
             if(args.length!=2){
                 System.out.println("请指定表名和数据文件夹名！");
+                logger.info("请指定表名和数据文件夹名！");
                 return;
             }
             String tableName = args[0];
@@ -54,6 +55,8 @@ public class DataImport
 
         List<String> filePathList = IOUtils.listAllFiles(dataDirStr);
 
+        int insertedFileNum = 0;
+
         for (int i=0;i<filePathList.size();i++) {
             String filePath = filePathList.get(i);
             String suffix = filePath.split("\\.")[filePath.split("\\.").length - 1];
@@ -75,11 +78,14 @@ public class DataImport
             }
 
 
+
+
             if (puts.size() >= 100||i==filePathList.size()-1) {
-                logger.info("开始插入！");
+
                 table.put(puts);
+                insertedFileNum += puts.size();
                 puts.clear();
-                logger.info("插入完成！");
+                logger.info("已完成文件插入：" + insertedFileNum + ",上一个插入文件为：" + filePathList.get(insertedFileNum-1));
                 Thread.sleep(1000);
             }
         }

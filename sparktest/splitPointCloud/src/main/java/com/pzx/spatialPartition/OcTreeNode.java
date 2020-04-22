@@ -127,7 +127,7 @@ public class OcTreeNode<T extends WithCuboidMBR> implements Serializable {
      * 访问者模式
      * @param <U>
      */
-    interface Visitor<U extends WithCuboidMBR>{
+    public static interface Visitor<U extends WithCuboidMBR>{
         /**
          * Visits a single node of the tree
          *

@@ -57,9 +57,9 @@ public class LasSplit {
 
 
 
-        List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
 
-        createHrcFile(binFilePathList,outputDirPath);
+
+        createHrcFile(outputDirPath);
         //createHrcRow(tableName);
         logger.info("-----------------------------------生成索引文件r.hrc");
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
@@ -484,12 +484,12 @@ public class LasSplit {
 
     /**
      * 利用输出目录中所有的bin文件的文件名（即nodeKey），生成索引文件
-     * @param binFilePathList 输出目录中的bin文件的文件地址
      * @param outputDirPath 输出目录
      */
-    public static void createHrcFile(List<String> binFilePathList,String outputDirPath){
+    public static void createHrcFile(String outputDirPath){
 
-        List<String> nodeKeyList = binFilePathList.stream().map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1,binFilePath.lastIndexOf("."))).collect(Collectors.toList());
+        List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
+        List<String> nodeKeyList = binFilePathList.stream().map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1, binFilePath.lastIndexOf("."))).collect(Collectors.toList());
 
         byte[] hrcBytes = createHrcBytes(nodeKeyList);
 
@@ -501,20 +501,6 @@ public class LasSplit {
 
     }
 
-
-    /**
-     * 利用HBase数据库中的rowkey生成八叉树的索引文件
-     *
-
-    public static void createHrcRow(String tableName){
-        Filter keyOnlyFilter = new KeyOnlyFilter();
-        Map<String,byte[]> resultMap = HBaseUtils.scan(tableName,null,null,null,null,keyOnlyFilter);
-        List<String> nodeKeyList = resultMap.keySet().stream().map(nodeKey -> nodeKey.split("-")[0].substring(1)).filter(nodeKey -> nodeKey.startsWith("r")).collect(Collectors.toList());
-        byte[] hrcBytes = createHrcBytes(nodeKeyList);
-        HBaseUtils.put(tableName,"hrc","data","hrc",hrcBytes);
-
-    }
-    */
 
     public static byte[] createHrcBytes(List<String> nodeKeyList){
         HashSet<String> nodeKeySet = (HashSet<String>) nodeKeyList.stream().collect(Collectors.toSet());
