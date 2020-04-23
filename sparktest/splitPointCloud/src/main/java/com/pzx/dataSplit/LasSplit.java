@@ -1,6 +1,7 @@
 package com.pzx.dataSplit;
 
 import com.alibaba.fastjson.JSONObject;
+import com.pzx.HBaseUtils;
 import com.pzx.HDFSUtils;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
@@ -12,6 +13,8 @@ import com.pzx.utils.LittleEndianUtils;
 import com.pzx.utils.CloudJSUtils;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -54,9 +57,6 @@ public class LasSplit {
 
         splitPointCloud(lasFilePathList,cloudjs,outputDirPath);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
-
-
-
 
 
         createHrcFile(outputDirPath);
@@ -135,29 +135,6 @@ public class LasSplit {
      */
     public static void splitPointCloud(List<String> lasFilePathList,JSONObject cloudjs,String outputDirPath){
         JavaSparkContext sc = SparkUtils.sparkContextInit();
-
-        /* 使用pointBytesList
-        List<byte[]> pointBytesList = new ArrayList<>();
-        //当下一次读取的点数之和将超过pointBytesListLimit 出发一下spark任务
-        for(String lasFilePath:lasFilePathList){
-            long time = System.currentTimeMillis();
-            LasFile lasFile = new LasFile(lasFilePath);
-            LasFileHeader lasFileHeader = lasFile.getLasFileHeader();
-            long pointCount = lasFileHeader.getNumberOfPointRecords();
-            if(pointCount+pointBytesList.size()>pointBytesListLimit){
-                doSparkTask(sc,pointBytesList,cloudjs,outputDirPath);
-                pointBytesList.clear();
-            }else {
-                List<byte[]> list = lasFile.getLasFilePointData().getPointBytesList();
-
-                pointBytesList.addAll(list);
-            }
-
-        }
-        doSparkTask(sc,pointBytesList,cloudjs,outputDirPath);
-
-         */
-
 
         ExecutorService executorService = Executors.newCachedThreadPool();
         long points = cloudjs.getLong("points");
@@ -304,8 +281,6 @@ public class LasSplit {
             pointNewBytesArray[coordinateBytesLength] = r;
             pointNewBytesArray[coordinateBytesLength+1] = g;
             pointNewBytesArray[coordinateBytesLength+2] = b;
-            //pointNewBytesArray[coordinateBytesLength+3] = newClodBytes[0];
-            //pointNewBytesArray[coordinateBytesLength+4] = newClodBytes[1];
 
             return new Tuple2<String,byte[]>(nodeKey,pointNewBytesArray);
 
@@ -323,19 +298,6 @@ public class LasSplit {
             String nodeKey = tuple2._1;
             Iterator<byte[]> iterator = tuple2._2.iterator();
 
-            /*
-            ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.MAX_VALUE/2);
-            while (iterator.hasNext()){
-                byte[] pointBytesArray = iterator.next();
-                byteBuffer.put(pointBytesArray);
-            }
-            byteBuffer.flip();
-            byte[] pointBytes = new byte[byteBuffer.remaining()];
-            byteBuffer.get(pointBytes,0,pointBytes.length);
-            byteBuffer.clear();
-
-             */
-
             //分布式锁
             /**/
             DistributedRedisLock.lock(nodeKey);
@@ -343,34 +305,11 @@ public class LasSplit {
             IOUtils.writerDataToFile(outputFilePath,iterator,true);
             DistributedRedisLock.unlock(nodeKey);
 
-            //HBaseUtils.put(tableName,(nodeKey.length()-1)+nodeKey,"data",System.currentTimeMillis()+"",pointBytes);
-
 
         });
 
 
 
-              /*
-                .mapPartitions(iterator ->{
-            Map<String,ByteArrayOutputStream>  map = new HashMap<>();
-            while (iterator.hasNext()){
-                Tuple2<String,byte[]> tuple2 = iterator.next();
-                map.putIfAbsent(tuple2._1,new ByteArrayOutputStream());
-                map.get(tuple2._1).write(tuple2._2);
-            }
-            return map.entrySet().iterator();
-        }).foreach(entry ->{
-            String nodeKey = entry.getKey();
-            ByteArrayOutputStream byteArrayOutputStream = entry.getValue();
-            //分布式锁
-            DistributedRedisLock.lock(nodeKey);
-
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteArrayOutputStream.toByteArray(),true);
-            DistributedRedisLock.unlock(nodeKey);
-            byteArrayOutputStream.close();
-        });
-
-               */
 
 
         try {
@@ -481,7 +420,6 @@ public class LasSplit {
      */
 
 
-
     /**
      * 利用输出目录中所有的bin文件的文件名（即nodeKey），生成索引文件
      * @param outputDirPath 输出目录
@@ -489,7 +427,10 @@ public class LasSplit {
     public static void createHrcFile(String outputDirPath){
 
         List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
-        List<String> nodeKeyList = binFilePathList.stream().map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1, binFilePath.lastIndexOf("."))).collect(Collectors.toList());
+        List<String> nodeKeyList = binFilePathList.stream()
+                .map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1,binFilePath.lastIndexOf("."))) //将路径以及文件后缀名截除
+                .map(binFile->binFile.substring(binFile.lastIndexOf("r"))) //将层级编码去除
+                .collect(Collectors.toList());
 
         byte[] hrcBytes = createHrcBytes(nodeKeyList);
 
@@ -532,5 +473,23 @@ public class LasSplit {
 
         return hrcBytes;
     }
+
+    /*
+    直接根据表中的数据生成hrc文件
+    public static void createHrcRow(String tableName){
+        Filter keyOnlyFilter = new KeyOnlyFilter();
+        Map<String,byte[]> resultMap = HBaseUtils.scan(tableName,null,null,"data","bin",keyOnlyFilter);
+        //获得的keyString：r3422467-data-bin
+        List<String> nodeKeyList = resultMap.keySet().stream()
+                .filter(nodeKey -> nodeKey.contains("r"))
+                .map(nodeKey -> nodeKey.split("-")[0].substring(1))
+                .collect(Collectors.toList());
+
+        byte[] hrcBytes = createHrcBytes(nodeKeyList);
+        HBaseUtils.put(tableName,"hrc","data","hrc",hrcBytes);
+    }
+
+     */
+
 
 }

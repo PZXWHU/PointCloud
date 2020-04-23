@@ -95,33 +95,6 @@ public class Grid3DLayer {
         cellElementsList.set(0, pointToInsert);
         child.insert(pointInCell);
 
-        /*
-        Point3D cellCenter = getCellCenter(gridCellKey);
-        Comparator<Point3D> closerToCellCenterComparator = closerToCellCenterComparator(cellCenter);
-
-        gridCells.putIfAbsent(gridCellKey, new PriorityQueue<>(closerToCellCenterComparator));
-        Queue<Point3D> cellElementsQueue = gridCells.get(gridCellKey);
-
-        //如果是当前网格是叶子节点或者网格单元中没有点，直接插入
-        if(isLeaf() || cellElementsQueue.size() ==0){
-            cellElementsQueue.add(pointToInsert);
-            elementsNum++;
-
-            //叶子节点需要考虑分裂
-            if(isLeaf())
-                maySplit();
-            return;
-        }
-
-        if(closerToCellCenterComparator.compare(cellElementsQueue.peek(), pointToInsert)>=0){
-            child.inset(pointToInsert);
-            return;
-        }
-
-        child.inset(cellElementsQueue.poll());
-        cellElementsQueue.add(pointToInsert);
-        */
-
     }
 
     /**
@@ -158,23 +131,6 @@ public class Grid3DLayer {
 
             }
 
-            /*
-            for (Map.Entry<Long, Queue<Point3D>> entry : gridCells.entrySet()){
-
-                Long cellKey = entry.getKey();
-                Queue<Point3D> cellElementsQueue = entry.getValue();
-
-
-                Point3D stayedPoint = cellElementsQueue.poll();
-
-                Iterator<Point3D> pointInertIntoChildren = cellElementsQueue.iterator();
-                while (pointInertIntoChildren.hasNext()){
-                    child.inset(pointInertIntoChildren.next());
-                }
-                cellElementsQueue.clear();
-                cellElementsQueue.add(stayedPoint);
-            }
-            */
             elementsNum = gridCells.size();
 
             //logger.info("分裂耗时："+ (System.currentTimeMillis() - time));
@@ -183,7 +139,7 @@ public class Grid3DLayer {
 
 
     private Grid3DLayer createChildGrid3DLayer(){
-        return new Grid3DLayer(region, cellSideLength / 2 , level + 1);
+        return new Grid3DLayer(region, cellSideLength / 2.0 , level + 1);
     }
 
     /**

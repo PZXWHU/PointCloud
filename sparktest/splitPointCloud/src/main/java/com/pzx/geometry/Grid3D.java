@@ -1,6 +1,7 @@
 package com.pzx.geometry;
 
 import com.pzx.IOUtils;
+import com.pzx.distributedLock.DistributedRedisLock;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
 import org.apache.log4j.Logger;
@@ -93,10 +94,10 @@ public class Grid3D {
                  */
 
                 buffer.forEach((nodekey,list)->{
-                    //DistributedRedisLock.lock(nodekey);
+                    DistributedRedisLock.lock(nodekey);
                     String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
                     IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-                    //DistributedRedisLock.unlock(nodekey);
+                    DistributedRedisLock.unlock(nodekey);
                 });
 
                 return true;

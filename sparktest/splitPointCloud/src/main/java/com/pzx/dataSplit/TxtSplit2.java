@@ -22,6 +22,8 @@ import scala.Function1;
 import scala.Tuple2;
 
 import scala.reflect.ClassManifestFactory;
+import scala.runtime.AbstractFunction1;
+
 import static com.pzx.pointCloud.PointCloud.*;
 
 import java.io.File;
@@ -274,7 +276,7 @@ public class TxtSplit2 {
             partitionIsWithElementsMap.put(tuple._1,tuple._2);
         }
 
-        class PartitionPruningFunction implements Function1<Object, Object> , Serializable{
+        class PartitionPruningFunction extends AbstractFunction1<Object, Object> implements Serializable{
             Map<Integer, Boolean> partitionIsWithElementsMap;
             public PartitionPruningFunction(Map<Integer, Boolean> partitionIsWithElementsMap){
                 this.partitionIsWithElementsMap =partitionIsWithElementsMap;
