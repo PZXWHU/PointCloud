@@ -3,6 +3,7 @@ package com.pzx.utils;
 
 
 import com.pzx.geometry.Point3D;
+import static com.pzx.pointCloud.PointCloud.*;
 import org.apache.log4j.Logger;
 
 
@@ -159,6 +160,20 @@ public class SplitUtils {
         return new double[]{xOffset+boundingBox[3],yOffset+boundingBox[4],zOffset+boundingBox[5]};
     }
 
+    public static double[] getNodeBoundingBox(String nodeKey, double[] totalBoundingBox){
+        double[] xyzOffset = getXYZOffset(nodeKey, totalBoundingBox);
+        double nodeSideLength = (totalBoundingBox[maxX] - totalBoundingBox[minX])/(1<<(nodeKey.length()-1));
+
+        double[] nodeBoundingBox = new double[6];
+        nodeBoundingBox[maxX] = xyzOffset[0] + nodeSideLength;
+        nodeBoundingBox[maxY] = xyzOffset[1] + nodeSideLength;
+        nodeBoundingBox[maxZ] = xyzOffset[2] + nodeSideLength;
+        nodeBoundingBox[minX] = xyzOffset[0];
+        nodeBoundingBox[minY] = xyzOffset[1];
+        nodeBoundingBox[minZ] = xyzOffset[2];
+
+        return nodeBoundingBox;
+    }
 
     /**
      * 以ZigZagFormat编码XYZ

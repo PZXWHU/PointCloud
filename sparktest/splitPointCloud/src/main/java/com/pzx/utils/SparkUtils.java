@@ -1,10 +1,7 @@
 package com.pzx.utils;
 
 import com.google.common.base.Preconditions;
-import com.pzx.geometry.Cube;
-import com.pzx.geometry.Cuboid;
-import com.pzx.geometry.Grid3DLayer;
-import com.pzx.geometry.Point3D;
+import com.pzx.geometry.*;
 import com.pzx.spatialPartition.OcTree;
 import com.pzx.spatialPartition.OcTreeNode;
 import com.pzx.spatialPartition.OcTreePartitioner;
@@ -63,7 +60,8 @@ public class SparkUtils {
                 OcTreePartitioner.class,
                 OcTreePartitioning.class,
                 Cube.class,
-                Grid3DLayer.class
+                Grid3DLayer.class,
+                Grid3D.class
 
         };
         sparkConf.registerKryoClasses(classesToRegister);

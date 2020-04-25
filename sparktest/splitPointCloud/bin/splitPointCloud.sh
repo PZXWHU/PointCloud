@@ -21,3 +21,9 @@ splitPointCloud_new.jar hdfs://master:9000/pzx/txtdata/sg27.txt hdfs://master:90
 --conf spark.executor.extraClassPath="/usr/local/spark-2.4.4/hbase-jars/*"
 --conf spark.executor.extraJavaOptions="-Dlog4j.configuration=log4j-executor.properties" \
 --files /home/pzx/log4j-driver.properties,/home/pzx/log4j-executor.properties   #上面的-Dlog4j.configuration不能直接读取到--files里面上传的文件 不知道为什么
+
+
+spark-submit --driver-memory 2g --executor-memory 15g --class com.pzx.dataSplit.TxtSplit2 \
+--conf spark.driver.extraJavaOptions="-Dlog4j.configuration=file:/home/pzx/log4j-driver.properties" \
+--conf spark.memory.fraction="0.3" --conf spark.executor.extraJavaOptions="-Xloggc:/tmp/gc.log -XX:+PrintGCDetails -XX:+PrintGCTimeStamps"  \
+splitPointCloud_new.jar hdfs://master:9000/pzx/txtdata/test.txt hdfs://master:9000/pzx/custom

@@ -195,19 +195,16 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
 
     public static void main(String[] args) {
-        OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),10000,40);
+        OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),1000,40);
         long time = System.currentTimeMillis();
         for(int i = 0; i<1000000 ; i++){
 
-            Point3D point3D = new Point3D(Math.random()*100,Math.random()*100,Math.random()*100);
+            Point3D point3D = new Point3D(Math.random()*10,Math.random()*10,Math.random()*90);
             ocTree.insert(point3D);
 
         }
-        System.out.println(System.currentTimeMillis() - time);
-        time = System.currentTimeMillis();
-        System.out.println(ocTree.queryContains(new Cuboid(13,11,17,39,29,59)).size());
-        System.out.println(System.currentTimeMillis() - time);
-
+        ocTree.printTree();
+        System.out.println(ocTree.getLeafNodeRegionsAndElementsNums());
     }
 
 

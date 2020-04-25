@@ -17,6 +17,9 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.PartitionPruningRDD;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Aggregator;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.storage.StorageLevel;
 import scala.Function1;
 import scala.Tuple2;
@@ -35,6 +38,12 @@ import java.util.*;
  * 数据八叉树分区
  */
 public class TxtSplit2 {
+
+
+    /**
+     * 目前存在两大问题  gc时间过长   java数据结构使用过多 占用内存过大
+     * 数据分区不均匀  导致某些Task时间过长
+     */
 
     private static Logger logger = Logger.getLogger(TxtSplit2.class);
 
@@ -57,18 +66,29 @@ public class TxtSplit2 {
         long time = System.currentTimeMillis();
         logger.info("-----------------------------------此次分片任务开始");
 
+        List<StructField> fields = new ArrayList<>();
+        fields.add(DataTypes.createStructField("x", DataTypes.DoubleType, false));
+        fields.add(DataTypes.createStructField("y", DataTypes.DoubleType, false));
+        fields.add(DataTypes.createStructField("z", DataTypes.DoubleType, false));
+        fields.add(DataTypes.createStructField("intensity", DataTypes.IntegerType, false));
+        fields.add(DataTypes.createStructField("r", DataTypes.IntegerType, false));
+        fields.add(DataTypes.createStructField("g", DataTypes.IntegerType, false));
+        fields.add(DataTypes.createStructField("b", DataTypes.IntegerType, false));
+        StructType scheme = DataTypes.createStructType(fields);
+
         //读取数据
         Dataset<Row> originDataset = sparkSession.read()
                 .format("csv")
                 .option("sep"," ")
-                .option("inferSchema","true")
+                .schema(scheme)
+                //.option("inferSchema","true") 模式推理会导致源数据被加载两遍
                 .load(inputDirPath)
-                .toDF("x","y","z","intensity","r","g","b")
+                //.toDF("x","y","z","intensity","r","g","b")
                 .selectExpr("x","y","z","r","g","b");
 
-        originDataset.persist(StorageLevel.MEMORY_AND_DISK_SER());
+        Dataset<Row> cachedDataSet = originDataset.persist(StorageLevel.MEMORY_AND_DISK_SER());
 
-        Dataset<Point3D> point3DDataset = originDataset.map((MapFunction<Row, Point3D>) row->{
+        Dataset<Point3D> point3DDataset = cachedDataSet.map((MapFunction<Row, Point3D>) row->{
             double x = row.getAs("x");
             double y = row.getAs("y");
             double z = row.getAs("z");
@@ -81,7 +101,7 @@ public class TxtSplit2 {
 
 
         //创建cloud.js文件
-        PointCloud pointCloud = TxtSplit1.createCloudJS(originDataset,outputDirPath);
+        PointCloud pointCloud = TxtSplit1.createCloudJS(cachedDataSet,outputDirPath);
         logger.info("-----------------------------------生成点云信息文件cloud.js, 耗时："+(System.currentTimeMillis()-time));
 
         time = System.currentTimeMillis();
@@ -194,9 +214,9 @@ public class TxtSplit2 {
         Cuboid partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions();
 
         //初始网格一个坐标轴的单元数,网格单元边长
-        int initGridOneSideCellNum = 1 << 5;
+        int initGridOneSideCellNum = 1 << 6;
         double initGridCellSideLength = partitionsTotalRegion.getXSideLength() / initGridOneSideCellNum;
-        double[] partitionBoundingBox = partitionsTotalRegion.getBoundingBox();
+        //double[] partitionsBoundingBox = partitionsTotalRegion.getBoundingBox();
 
         //广播变量
         Broadcast<List<Cuboid>> partitionRegionsBroadcast = sparkSession.sparkContext().broadcast(partitionRegions, ClassManifestFactory.classType(List.class));
@@ -205,14 +225,14 @@ public class TxtSplit2 {
 
             Tuple2<Integer, Point3D> pointWithOriginalPartitionID = iterator.next();
             Cuboid partitionRegion = partitionRegionsBroadcast.getValue().get(pointWithOriginalPartitionID._1);
-            Grid3D grid3D = new Grid3D(partitionRegion, initGridCellSideLength);
+            Grid3D grid3D = new Grid3D(partitionRegion, initGridCellSideLength, partitionsTotalRegion);
 
             grid3D.insert(pointWithOriginalPartitionID._2);
             while (iterator.hasNext()){
                 grid3D.insert(iterator.next()._2);
             }
 
-            grid3D.shardToFile(partitionBoundingBox,coordinatesScale,outputDirPath);
+            grid3D.shardToFile(coordinatesScale,outputDirPath);
 
             return Collections.emptyIterator();
         }, true).foreach(o -> {});
@@ -236,6 +256,7 @@ public class TxtSplit2 {
         //将分区范围扩大一点点，避免因浮点数精度问题，导致与边界重合的点不在范围内
         //传入正方体范围以便后面的网格处理
         Cube partitionsTotalRegion = (Cube) new Cube(boundingBox[minX],boundingBox[minY],boundingBox[minZ],(boundingBox[maxX] - boundingBox[minX])).expandLittle();
+
         OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion,partitionNum);
         OcTreePartitioner ocTreePartitioner = ocTreePartitioning.getPartitioner();
 

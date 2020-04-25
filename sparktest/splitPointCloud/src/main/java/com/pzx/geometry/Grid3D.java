@@ -4,6 +4,8 @@ import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
+import javafx.scene.chart.CategoryAxisBuilder;
+import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Dataset;
@@ -12,10 +14,7 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Grid3D {
@@ -28,8 +27,8 @@ public class Grid3D {
         this.rootLayer = rootLayer;
     }
 
-    public Grid3D(Cuboid region, double cellSideLength) {
-        this.rootLayer = new Grid3DLayer(region, cellSideLength);
+    public Grid3D(Cuboid region, double cellSideLength, Cuboid totalRegion) {
+        this.rootLayer = new Grid3DLayer(region, cellSideLength, totalRegion);
     }
 
 
@@ -45,7 +44,12 @@ public class Grid3D {
             public boolean visit(Grid3DLayer grid3DLayer) {
                 System.out.println("当前网格level："+ grid3DLayer.getGridLevel() + ",是否为叶节点："+ grid3DLayer.isLeaf());
                 System.out.println("网格含有点数量：" + grid3DLayer.getElementsNum());
-                System.out.println("含有点数是否小于网格数：" + (grid3DLayer.getElementsNum() < grid3DLayer.getMaxCellNum()));
+                System.out.println("网格含有网格单元数量：" + grid3DLayer.getMaxCellNum());
+                System.out.println("含有点数是否小于网格数：" + (grid3DLayer.getElementsNum() < grid3DLayer.getCellElementsMap().size()));
+                System.out.println(grid3DLayer.getNodeMaxCellNumMap());
+                System.out.println("网格的含有的最大单元格数量："+ grid3DLayer.getNodeMaxCellNumMap().values().stream().mapToInt(i -> i.intValue()).sum());
+                System.out.println(grid3DLayer.getNodeElementNumMap());
+                System.out.println("网格的含有的点数量："+ grid3DLayer.getNodeElementNumMap().values().stream().mapToInt(i -> i.intValue()).sum());
                 /*
                 System.out.println("网格单元长度：" + grid3DLayer.getCellSideLength());
                 System.out.println("网格单元最大数：" + grid3DLayer.getCellTotalNum());
@@ -63,41 +67,74 @@ public class Grid3D {
         });
     }
 
-
-    public void shardToFile(double[] boundingBox,  double[] coordinatesScale, String outputDirPath){
+    public long getTotalElementsNum(){
+        MutableLong totalElementsNum = new MutableLong(0);
         rootLayer.traverse(new Grid3DLayer.Visitor() {
             @Override
             public boolean visit(Grid3DLayer grid3DLayer) {
-                //System.out.println("--------------------");
+                totalElementsNum.add(grid3DLayer.getElementsNum());
+                return true;
+            }
+        });
+        return totalElementsNum.getValue();
+    }
+
+    public void shardToFile(double[] coordinatesScale, String outputDirPath){
+        rootLayer.traverse(new Grid3DLayer.Visitor() {
+            @Override
+            public boolean visit(Grid3DLayer grid3DLayer) {
+
                 HashMap<String, List<byte[]>> buffer = new HashMap<>();
 
+                /*
                 for(Map.Entry<Long, List<Point3D> > entry : grid3DLayer.getGridCells().entrySet()){
 
+                    double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
                     //一个网格单元一定属于同一各分片
                     Point3D cellCenter = grid3DLayer.getCellCenter(entry.getKey());
-                    String nodeKey = SplitUtils.getOctreeNodeName(cellCenter, boundingBox, grid3DLayer.getGridLevel());
+                    String nodeKey = SplitUtils.getOctreeNodeName(cellCenter, totalBoundingBox, grid3DLayer.getGridLevel());
                     List<Point3D> cellElements = entry.getValue();
 
                     buffer.putIfAbsent(nodeKey, new ArrayList<>());
-                    double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, boundingBox);
+                    double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
                     List<byte[]> pointBytesList = cellElements.stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
                     buffer.get(nodeKey).addAll(pointBytesList);
                 }
 
-                /*
-                System.out.println("层级："+ grid3DLayer.getGridLevel());
-                System.out.println("是否为叶节点："+ grid3DLayer.isLeaf());
-                System.out.println("含有点数量："+ grid3DLayer.getElementsNum());
-                System.out.println("含有网格数量："+ grid3DLayer.getGridCells().size());
-                System.out.println("含有最大网格数量："+ grid3DLayer.getMaxCellNum());
-
-                 */
-
                 buffer.forEach((nodekey,list)->{
-                    DistributedRedisLock.lock(nodekey);
+                    //DistributedRedisLock.lock(nodekey);
                     String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
                     IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-                    DistributedRedisLock.unlock(nodekey);
+                    //DistributedRedisLock.unlock(nodekey);
+                });
+
+                 */
+                Map<Long, List<Point3D>> cellElementsMap = grid3DLayer.getCellElementsMap();
+
+                for(Map.Entry<String, HashSet<Long>> entry : grid3DLayer.getNodeCellsMap().entrySet()){
+                    String nodeKey = entry.getKey();
+                    HashSet<Long> cellKeys = entry.getValue();
+
+                    buffer.putIfAbsent(nodeKey, new ArrayList<>());
+                    double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
+                    double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
+
+                    double[] nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey,totalBoundingBox);
+                    Cuboid nodeCuboid = new Cuboid(nodeBoundingBox[3], nodeBoundingBox[4], nodeBoundingBox[5] ,
+                            nodeBoundingBox[0], nodeBoundingBox[1], nodeBoundingBox[2]);
+
+                    for(Long cellKey : cellKeys){
+                        List<byte[]> pointBytes = cellElementsMap.get(cellKey).stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
+                        buffer.get(nodeKey).addAll(pointBytes);
+
+                    }
+                }
+                buffer.forEach((nodekey,list)->{
+
+                    //DistributedRedisLock.lock(nodekey);
+                    String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
+                    IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
+                    //DistributedRedisLock.unlock(nodekey);
                 });
 
                 return true;
@@ -106,13 +143,15 @@ public class Grid3D {
     }
 
     public static void main(String[] args) {
-        /*
-        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<5));
+
+
+        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<5),
+                new Cuboid(0,0,0,8,8,8));
 
         long startTime = System.currentTimeMillis();
 
         int num = 0;
-        for(int i =0 ; i< 1000000 ; i++){
+        for(int i =0 ; i< 1201201 ; i++){
             long time = System.currentTimeMillis();
             grid3D.insert(new Point3D(Math.random()* 3, Math.random()* 2 , Math.random()* 3));
             num++;
@@ -122,9 +161,11 @@ public class Grid3D {
                 num = 0;
             }
 
+        }
 
 
-        }*/
+
+/*
         SparkSession sparkSession = SparkUtils.localSparkSessionInit();
 
         String inputDirPath = "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\test.txt";
@@ -151,27 +192,35 @@ public class Grid3D {
         long startTime = System.currentTimeMillis();
 
         List<Point3D> point3DList = point3DDataset.collectAsList();
-        Grid3D grid3D = new Grid3D(new Cuboid(-26.861, -89.455, -1.887, 62.584, 0.0, 87.568), 89.455 / (1 << 5));
+        Grid3D grid3D = new Grid3D(new Cuboid(-26.861, -89.455, -1.887, 62.594, 0.0, 87.568),
+                89.455 / (1 << 5),new Cuboid(-26.861, -89.455, -1.887, 62.594, 0.0, 87.568));
 
         int num = 0;
         for (int i = 0; i < point3DList.size(); i++) {
             long time = System.currentTimeMillis();
-            grid3D.insert(point3DList.get(i));
+            Point3D point3D = point3DList.get(i);
+            grid3D.insert(point3D);
             num++;
+
             long time1 = System.currentTimeMillis();
             if ((time1 - time) > 10) {
                 logger.info("插入消耗时间：" + (time1 - time) + ",距离上一次慢插入期间插入了" + num + "个点");
                 num = 0;
             }
+
         }
 
+ */
+
             System.out.println("插入总耗时：" + (System.currentTimeMillis() - startTime));
-            //grid3DLayer.printGrid3D();
+            grid3D.printGrid3D();
+            //System.out.println("总共插入点:" + point3DList.size());
+            System.out.println("总共插入点:" + grid3D.getTotalElementsNum());
             //System.out.println(grid3DLayer.getLeafGridLevel());
-            grid3D.shardToFile(new double[]{62.584, 0.0, 87.568, -26.861, -89.455, -1.887}, new double[]{0.001, 0.001, 0.001}, "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\新建文件夹");
+            grid3D.shardToFile(new double[]{0.001, 0.001, 0.001}, "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\新建文件夹");
             //System.out.println(grid3DLayer.getCellSideLength());
             //System.out.println(grid3DLayer.getCellRegion("1-1-1"));
-
+        System.out.println("总耗时：" + (System.currentTimeMillis() - startTime));
 
     }
 

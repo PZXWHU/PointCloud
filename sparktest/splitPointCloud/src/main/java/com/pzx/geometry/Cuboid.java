@@ -5,7 +5,10 @@ package com.pzx.geometry;
 
 
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import org.checkerframework.checker.units.qual.C;
+import org.json4s.scalap.scalasig.ThisType;
 
 import java.io.Serializable;
 
@@ -21,7 +24,8 @@ public class Cuboid implements WithCuboidMBR, Serializable {
 
     public Cuboid(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         Preconditions.checkArgument(minX<=maxX && minY<=maxY && minZ<=maxZ,
-                "the first three parameters must be smaller than the last three！" );
+                "the first three parameters {} {} {} must be smaller than the last three {} {} {}！"
+                ,minX, minY, minZ, maxX ,maxY, maxZ);
         this.minX = minX;
         this.minY = minY;
         this.minZ = minZ;
@@ -106,6 +110,13 @@ public class Cuboid implements WithCuboidMBR, Serializable {
         return new Point3D((minX+maxX)/2 , (minY+maxY)/2 , (minZ+maxZ)/2);
     }
 
+    public Optional<Cuboid> intersectedRegion(Cuboid other){
+        if(!this.intersects(other)){
+            return Optional.absent();
+        }
+        return Optional.of(new Cuboid(Math.max(minX, other.minX), Math.max(minY, other.minY), Math.max(minZ, other.minZ),
+                Math.min(maxX, other.maxX),Math.min(maxY, other.maxY), Math.min(maxZ, other.maxZ) ));
+    }
 
     /**
      * 将cuboid分为八个子cuboid
@@ -122,6 +133,13 @@ public class Cuboid implements WithCuboidMBR, Serializable {
             double newMinX = minX + childXLength * (i>>2 & 1);
             double newMinY = minY + childYLength * (i>>1 & 1);
             double newMinZ = minZ + childZLength * (i>>0 & 1);
+/*
+            if(childXLength<0){
+                System.out.println(childXLength);
+                System.out.println(this);
+            }
+
+ */
             childrenCuboid[i] = new Cuboid(newMinX,newMinY,newMinZ,
                     newMinX+childXLength,newMinY+childYLength,newMinZ+childZLength);
         }
@@ -135,20 +153,19 @@ public class Cuboid implements WithCuboidMBR, Serializable {
      * @return
      */
     public Cuboid expandLittle(){
-        minX = minX - 0.1;
-        minY = minY - 0.1;
-        minZ = minZ - 0.1;
-        maxX = maxX + 0.1;
-        maxY = maxY + 0.1;
-        maxZ = maxZ + 0.1;
+        double expand = (maxX - minX) /10000.0;
+        minX = minX - expand;
+        minY = minY - expand;
+        minZ = minZ - expand;
+        maxX = maxX + expand;
+        maxY = maxY + expand;
+        maxZ = maxZ + expand;
         return this;
     }
 
     public double[] getBoundingBox(){return new double[]{maxX, maxY, maxZ, minX, minY, minZ};}
 
-    public double getXSideLength(){
-        return maxX-minX;
-    }
+    public double getXSideLength(){ return maxX-minX; }
 
     public double getYSideLength(){
         return maxY-minY;
