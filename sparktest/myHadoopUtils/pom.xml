@@ -35,13 +35,15 @@
             <version>1.4.9</version>
             <scope>provided</scope>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-hdfs-client -->
+        <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-hdfs-client</artifactId>
-            <version>3.2.0</version>
+            <artifactId>hadoop-common</artifactId>
+            <version>2.7.7</version>
             <scope>provided</scope>
         </dependency>
+
+
     </dependencies>
 
     <build>
@@ -101,6 +103,7 @@
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
                 </configuration>
+
                 <executions>
                     <execution>
                         <id>make-assembly</id>
@@ -110,6 +113,7 @@
                         </goals>
                     </execution>
                 </executions>
+
             </plugin>
 
         </plugins>

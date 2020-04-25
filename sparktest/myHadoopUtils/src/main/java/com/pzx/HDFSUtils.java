@@ -20,14 +20,14 @@ public class HDFSUtils {
     private static FileSystem init(){
         try {
             Configuration conf = new Configuration();
-
+            /*
             InputStream hdfsPropertiesInputStream = HDFSUtils.class.getClassLoader().getResourceAsStream("hdfs.conf");
             Properties hdfsProperties = new Properties();
             hdfsProperties.load(hdfsPropertiesInputStream);
             for(String hdfsPropertyNames:hdfsProperties.stringPropertyNames()){
                 conf.set(hdfsPropertyNames,hdfsProperties.getProperty(hdfsPropertyNames));
             }
-
+             */
             FileSystem hdfsFs = FileSystem.get(conf);
             return hdfsFs;
         }catch (IOException e){

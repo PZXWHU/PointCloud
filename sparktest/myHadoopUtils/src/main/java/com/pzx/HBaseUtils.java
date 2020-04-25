@@ -24,6 +24,7 @@ public class HBaseUtils {
         try{
             Configuration configuration = HBaseConfiguration.create();
 
+
             //公司Hbase
             //configuration.set("hbase.rootdir", "hdfs://master:9000/hbase");
             /*
@@ -32,12 +33,14 @@ public class HBaseUtils {
             configuration.set("hbase.zookeeper.quorum", "master,slave1,slave2");
             */
 
+            /*
             InputStream hbasePropertiesInputStream = HBaseUtils.class.getClassLoader().getResourceAsStream("hbase.conf");
             Properties hbaseProperties = new Properties();
             hbaseProperties.load(hbasePropertiesInputStream);
             for(String hbasePropertyNames:hbaseProperties.stringPropertyNames()){
                 configuration.set(hbasePropertyNames,hbaseProperties.getProperty(hbasePropertyNames));
             }
+             */
 
             connection = ConnectionFactory.createConnection(configuration);
             return connection;
