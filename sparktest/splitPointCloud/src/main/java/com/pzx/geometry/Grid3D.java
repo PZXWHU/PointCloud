@@ -28,7 +28,11 @@ public class Grid3D {
     }
 
     public Grid3D(Cuboid region, double cellSideLength, Cuboid totalRegion) {
-        this.rootLayer = new Grid3DLayer(region, cellSideLength, totalRegion);
+        this(region, cellSideLength, totalRegion, 15);
+    }
+
+    public Grid3D(Cuboid region, double cellSideLength, Cuboid totalRegion, int maxLevel) {
+        this.rootLayer = new Grid3DLayer(region, cellSideLength,0, totalRegion, maxLevel);
     }
 
 
@@ -85,56 +89,29 @@ public class Grid3D {
             public boolean visit(Grid3DLayer grid3DLayer) {
 
                 HashMap<String, List<byte[]>> buffer = new HashMap<>();
-
-                /*
-                for(Map.Entry<Long, List<Point3D> > entry : grid3DLayer.getGridCells().entrySet()){
-
-                    double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
-                    //一个网格单元一定属于同一各分片
-                    Point3D cellCenter = grid3DLayer.getCellCenter(entry.getKey());
-                    String nodeKey = SplitUtils.getOctreeNodeName(cellCenter, totalBoundingBox, grid3DLayer.getGridLevel());
-                    List<Point3D> cellElements = entry.getValue();
-
-                    buffer.putIfAbsent(nodeKey, new ArrayList<>());
-                    double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
-                    List<byte[]> pointBytesList = cellElements.stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
-                    buffer.get(nodeKey).addAll(pointBytesList);
-                }
-
-                buffer.forEach((nodekey,list)->{
-                    //DistributedRedisLock.lock(nodekey);
-                    String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
-                    IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-                    //DistributedRedisLock.unlock(nodekey);
-                });
-
-                 */
                 Map<Long, List<Point3D>> cellElementsMap = grid3DLayer.getCellElementsMap();
+                double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
 
                 for(Map.Entry<String, HashSet<Long>> entry : grid3DLayer.getNodeCellsMap().entrySet()){
                     String nodeKey = entry.getKey();
                     HashSet<Long> cellKeys = entry.getValue();
 
                     buffer.putIfAbsent(nodeKey, new ArrayList<>());
-                    double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
                     double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
-
                     double[] nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey,totalBoundingBox);
-                    Cuboid nodeCuboid = new Cuboid(nodeBoundingBox[3], nodeBoundingBox[4], nodeBoundingBox[5] ,
-                            nodeBoundingBox[0], nodeBoundingBox[1], nodeBoundingBox[2]);
 
                     for(Long cellKey : cellKeys){
                         List<byte[]> pointBytes = cellElementsMap.get(cellKey).stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
                         buffer.get(nodeKey).addAll(pointBytes);
 
                     }
+
                 }
                 buffer.forEach((nodekey,list)->{
-
-                    //DistributedRedisLock.lock(nodekey);
+                    DistributedRedisLock.lock(nodekey);
                     String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
                     IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-                    //DistributedRedisLock.unlock(nodekey);
+                    DistributedRedisLock.unlock(nodekey);
                 });
 
                 return true;
@@ -145,13 +122,13 @@ public class Grid3D {
     public static void main(String[] args) {
 
 
-        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<5),
+        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<6),
                 new Cuboid(0,0,0,8,8,8));
 
         long startTime = System.currentTimeMillis();
 
         int num = 0;
-        for(int i =0 ; i< 1201201 ; i++){
+        for(int i =0 ; i< 3000000 ; i++){
             long time = System.currentTimeMillis();
             grid3D.insert(new Point3D(Math.random()* 3, Math.random()* 2 , Math.random()* 3));
             num++;

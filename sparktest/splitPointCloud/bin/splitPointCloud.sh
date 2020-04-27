@@ -11,8 +11,9 @@ spark-submit --driver-memory 2g --executor-memory 5g --class com.pzx.dataSplit.T
 --conf spark.driver.extraJavaOptions="-Dlog4j.configuration=file:/home/pzx/log4j-driver.properties" \
 split_txt.jar hdfs://master:9000/pzx/txtdata hdfs://master:9000/pzx/custom
 
-spark-submit --driver-memory 2g --executor-memory 10g --class com.pzx.dataSplit.TxtSplit2 \
+spark-submit --driver-memory 2g --executor-memory 15g --class com.pzx.dataSplit.TxtSplit2 \
 --conf spark.driver.extraJavaOptions="-Dlog4j.configuration=file:/home/pzx/log4j-driver.properties" \
+--conf spark.memory.Fraction=0.4 --conf spark.memory.storageFraction=0.5 \
 splitPointCloud_new.jar hdfs://master:9000/pzx/txtdata/sg27.txt hdfs://master:9000/pzx/custom
 
 

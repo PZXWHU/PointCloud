@@ -89,12 +89,12 @@ public class TxtSplit2 {
         Dataset<Row> cachedDataSet = originDataset.persist(StorageLevel.MEMORY_AND_DISK_SER());
 
         Dataset<Point3D> point3DDataset = cachedDataSet.map((MapFunction<Row, Point3D>) row->{
-            double x = row.getAs("x");
-            double y = row.getAs("y");
-            double z = row.getAs("z");
-            int r = row.getAs("r");
-            int g = row.getAs("g");
-            int b = row.getAs("b");
+            double x = (double)row.getAs("x");
+            double y = (double)row.getAs("y");
+            double z = (double)row.getAs("z");
+            int r = (int)row.getAs("r");
+            int g = (int)row.getAs("g");
+            int b = (int)row.getAs("b");
             return new Point3D(x,y,z,(byte)r,(byte)g,(byte)b);
         },Encoders.kryo(Point3D.class));
 
@@ -214,7 +214,7 @@ public class TxtSplit2 {
         Cuboid partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions();
 
         //初始网格一个坐标轴的单元数,网格单元边长
-        int initGridOneSideCellNum = 1 << 6;
+        int initGridOneSideCellNum = 1 << 5;
         double initGridCellSideLength = partitionsTotalRegion.getXSideLength() / initGridOneSideCellNum;
         //double[] partitionsBoundingBox = partitionsTotalRegion.getBoundingBox();
 

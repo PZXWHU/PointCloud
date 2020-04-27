@@ -17,6 +17,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
+import org.codehaus.janino.Java;
 import scala.Tuple2;
 
 import java.io.File;
@@ -30,8 +31,8 @@ public class BulkLoad {
             return;
         }
         String filesDir = args[0];
-        SparkSession spark = SparkSession.builder().appName("bulkLoad").getOrCreate();
-        JavaSparkContext javaSparkContext = new JavaSparkContext(spark.sparkContext());
+        SparkSession spark = SparkSession.builder().appName("bulkLoad").master("local").getOrCreate();
+        JavaSparkContext javaSparkContext = JavaSparkContext.fromSparkContext(spark.sparkContext());
 
         JavaPairRDD<String,String> unresolvedRDD = javaSparkContext.wholeTextFiles(filesDir);
         JavaPairRDD<String,byte[]> pointCloudRDD = unresolvedRDD.mapToPair(tuple->{
@@ -54,6 +55,7 @@ public class BulkLoad {
             return new Tuple2<ImmutableBytesWritable, KeyValue>(immutableRowKey, keyValue);
 
         });
+
 
         Configuration hConf = HBaseConfiguration.create();
         String tableName = args[1];

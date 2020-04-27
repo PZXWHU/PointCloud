@@ -24,6 +24,7 @@ public class Grid3DLayer {
     private long cellNumYSide;
     private long cellNumZSide;
     private int level;
+    private int maxLevel;
     private Grid3DLayer child;
     private Cuboid region;//当前此网格的范围（分区网格范围）
     private Cuboid totalRegion; //所有网格的整体范围（全局网格范围）
@@ -43,11 +44,7 @@ public class Grid3DLayer {
     private Map<Long, List<Point3D>> cellElementsMap = new HashMap<>();
 
 
-    public Grid3DLayer(Cuboid region, double cellSideLength, Cuboid totalRegion){
-        this(region, cellSideLength ,0, totalRegion);
-    }
-
-    public Grid3DLayer(Cuboid region, double cellSideLength , int level, Cuboid totalRegion){
+    public Grid3DLayer(Cuboid region, double cellSideLength , int level, Cuboid totalRegion ,int maxLevel){
         this.region = region;
         this.totalRegion = totalRegion;
         this.cellSideLength = cellSideLength;
@@ -56,6 +53,7 @@ public class Grid3DLayer {
         this.cellNumZSide = (int)Math.ceil(region.getZSideLength() / cellSideLength);
         this.maxCellNum = cellNumXSide * cellNumYSide * cellNumZSide;
         this.level = level;
+        this.maxLevel = maxLevel;
         this.child = null;
     }
 
@@ -68,40 +66,14 @@ public class Grid3DLayer {
 
         //添加八叉树节点对应的网格单元
         String nodeKey = SplitUtils.getOctreeNodeName(getCellCenter(gridCellKey), totalRegion.getBoundingBox(), level);
+
         nodeCellsMap.putIfAbsent(nodeKey, new HashSet<>());
         nodeCellsMap.get(nodeKey).add(gridCellKey);
 
         List<Point3D> cellElementsList = cellElementsMap.get(gridCellKey);
 
-        /*
-
-        //如果是当前网格是叶子节点或者网格单元中没有点，直接插入
-        if(isLeaf() || cellElementsList.size() ==0){
-            cellElementsList.add(pointToInsert);
-            elementsNum++;
-
-            //叶子节点需要考虑分裂
-            if(isLeaf())
-                maySplit();
-            return;
-        }
-
-        Point3D pointInCell = cellElementsList.get(0);
-        Point3D cellCenter = getCellCenter(gridCellKey);
-
-        if(cellCenter.distance(pointToInsert) > cellCenter.distance(pointInCell)){
-            child.insert(pointToInsert);
-            return;
-        }
-
-        //替换cell中的点
-        cellElementsList.set(0, pointToInsert);
-        child.insert(pointInCell);
-
-         */
         if(!splitNodesSet.contains(nodeKey)|| cellElementsList.size() ==0){
             cellElementsList.add(pointToInsert);
-            //elementsNum++;
             nodeElementNumMap.putIfAbsent(nodeKey, 0L);
             nodeElementNumMap.put(nodeKey, nodeElementNumMap.get(nodeKey) + 1L);
 
@@ -128,8 +100,8 @@ public class Grid3DLayer {
      * @param nodeKey
      */
     public void nodeMaySplit(String nodeKey){
-        long time = System.currentTimeMillis();
-        if(getNodeElementsNum(nodeKey) > getNodeMaxCellNum(nodeKey)){
+
+        if(getNodeElementsNum(nodeKey) > getNodeMaxCellNum(nodeKey)&& level <= maxLevel){
 
             splitNodesSet.add(nodeKey);//记录分裂过的节点
             createChildGrid3DLayerIfNull();
@@ -156,12 +128,6 @@ public class Grid3DLayer {
             nodeElementNumMap.put(nodeKey, (long) cellKeys.size());
 
         }
-        /*
-        if(System.currentTimeMillis() - time>10){
-            System.out.println("分裂消耗时间："+ (System.currentTimeMillis()-time));
-        }
-
-         */
 
     }
 
@@ -185,6 +151,10 @@ public class Grid3DLayer {
         double[] nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey, totalRegion.getBoundingBox());
         Cuboid intersectedRegion = region.intersectedRegion(new Cuboid(nodeBoundingBox[minX],nodeBoundingBox[minY],nodeBoundingBox[minZ],
                 nodeBoundingBox[maxX],nodeBoundingBox[maxY],nodeBoundingBox[maxZ])).orNull();
+        if(intersectedRegion==null){
+            throw new RuntimeException(nodeKey + totalRegion + region + new Cuboid(nodeBoundingBox[minX],nodeBoundingBox[minY],nodeBoundingBox[minZ],
+                    nodeBoundingBox[maxX],nodeBoundingBox[maxY],nodeBoundingBox[maxZ]));
+        }
         long nodeMaxCellNum = (long) (Math.ceil(intersectedRegion.getXSideLength()/ cellSideLength) *
                 Math.ceil(intersectedRegion.getYSideLength()/ cellSideLength)*
                 Math.ceil(intersectedRegion.getZSideLength()/ cellSideLength));
@@ -240,7 +210,7 @@ public class Grid3DLayer {
     }
 
     private Grid3DLayer createChildGrid3DLayer(){
-        return new Grid3DLayer(region, cellSideLength / 2.0 , level + 1, totalRegion);
+        return new Grid3DLayer(region, cellSideLength / 2.0 , level + 1, totalRegion, maxLevel);
     }
 
     /**
@@ -249,12 +219,12 @@ public class Grid3DLayer {
      * @return
      */
     private long getGridCellKey(Point3D point3D){
-        long xSideIndex = (long)Math.floor((point3D.x - region.getMinX()) / cellSideLength);
-        long ySideIndex = (long)Math.floor((point3D.y - region.getMinY()) / cellSideLength);
-        long zSideIndex = (long)Math.floor((point3D.z - region.getMinZ()) / cellSideLength);
+        long xSideIndex = (long)Math.floor((point3D.x - totalRegion.getMinX()) / cellSideLength);
+        long ySideIndex = (long)Math.floor((point3D.y - totalRegion.getMinY()) / cellSideLength);
+        long zSideIndex = (long)Math.floor((point3D.z - totalRegion.getMinZ()) / cellSideLength);
 
-        //以long型的后六十位储存
-        long cellKey = xSideIndex<<40 | ySideIndex<<20 | zSideIndex;
+        //以long型的后六十三位储存
+        long cellKey = xSideIndex<<42 | ySideIndex<<21 | zSideIndex;
 
         return cellKey;
     }
@@ -265,13 +235,13 @@ public class Grid3DLayer {
 
     public Cube getCellRegion(long gridCellKey){
 
-        long xSideIndex = gridCellKey >>> 40 & 0xfffffL;
-        long ySideIndex = gridCellKey >>> 20 & 0xfffffL;
+        long xSideIndex = gridCellKey >>> 42 & 0xfffffL;
+        long ySideIndex = gridCellKey >>> 21 & 0xfffffL;
         long zSideIndex = gridCellKey & 0xfffffL;
 
-        double cellMinX = region.getMinX() + xSideIndex * cellSideLength;
-        double cellMinY = region.getMinY() + ySideIndex * cellSideLength;
-        double cellMinZ = region.getMinZ() + zSideIndex * cellSideLength;
+        double cellMinX = totalRegion.getMinX() + xSideIndex * cellSideLength;
+        double cellMinY = totalRegion.getMinY() + ySideIndex * cellSideLength;
+        double cellMinZ = totalRegion.getMinZ() + zSideIndex * cellSideLength;
 
         return new Cube(cellMinX, cellMinY, cellMinZ, cellSideLength);
     }

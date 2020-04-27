@@ -21,7 +21,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
-    <!--
+<!--
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -34,7 +34,9 @@
 -->
 
 
+
     <dependencies>
+
         <dependency>
             <groupId>com.pzx</groupId>
             <artifactId>myHadoopUtils</artifactId>
@@ -44,12 +46,20 @@
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-client</artifactId>
             <version>1.4.9</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-all</artifactId>
-                </exclusion>
-            </exclusions>
+
+                   <exclusions>
+                       <exclusion>
+                           <groupId>io.netty</groupId>
+                           <artifactId>netty-all</artifactId>
+                       </exclusion>
+                   </exclusions>
+
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.12</artifactId>
+            <version>2.4.4</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -57,23 +67,7 @@
             <artifactId>spark-core_2.12</artifactId>
             <version>2.4.4</version>
             <scope>provided</scope>
-
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_2.12</artifactId>
-            <version>2.4.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.hbase/hbase-mapreduce
-        <dependency>
-            <groupId>org.apache.hbase</groupId>
-            <artifactId>hbase-mapreduce</artifactId>
-            <version>2.2.4</version>
-            <scope>provided</scope>
-        </dependency>
-        -->
         <!-- https://mvnrepository.com/artifact/org.apache.hbase/hbase-server-->
         <dependency>
             <groupId>org.apache.hbase</groupId>
