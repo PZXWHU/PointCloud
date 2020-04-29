@@ -1,6 +1,7 @@
 package com.pzx.geometry;
 
 import com.pzx.IOUtils;
+import com.pzx.dataSplit.TxtSplit2;
 import com.pzx.distributedLock.DistributedRedisLock;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
@@ -114,12 +115,12 @@ public class Grid3D {
     public List<Tuple2<String, Integer>> shardToFile(double[] coordinatesScale, String outputDirPath){
         List<Tuple2<String, Integer>> nodeElementsTupleList = new ArrayList<>();
         HashMap<String, List<byte[]>> nodeElementsBuffer = shardToNode(coordinatesScale);
-        nodeElementsBuffer.forEach((nodekey,list)->{
-            DistributedRedisLock.lock(nodekey);
-            String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
+        nodeElementsBuffer.forEach((nodeKey,list)->{
+            DistributedRedisLock.lock(nodeKey);
+            String outputFilePath = outputDirPath + File.separator + SplitUtils.createBinFileName(nodeKey);
             IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-            DistributedRedisLock.unlock(nodekey);
-            nodeElementsTupleList.add(new Tuple2<String, Integer>(nodekey, list.size()));
+            DistributedRedisLock.unlock(nodeKey);
+            nodeElementsTupleList.add(new Tuple2<String, Integer>(nodeKey, list.size()));
         });
         return nodeElementsTupleList;
     }
@@ -127,7 +128,7 @@ public class Grid3D {
     public static void main(String[] args) {
 
 
-        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<6),
+        Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<5),
                 new Cube(0,0,0,8));
 
         long startTime = System.currentTimeMillis();
@@ -194,14 +195,15 @@ public class Grid3D {
 
  */
 
-            System.out.println("插入总耗时：" + (System.currentTimeMillis() - startTime));
-            grid3D.printGrid3D();
-            //System.out.println("总共插入点:" + point3DList.size());
-            System.out.println("总共插入点:" + grid3D.getTotalElementsNum());
-            //System.out.println(grid3DLayer.getLeafGridLevel());
-            grid3D.shardToFile(new double[]{0.001, 0.001, 0.001}, "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\新建文件夹");
-            //System.out.println(grid3DLayer.getCellSideLength());
-            //System.out.println(grid3DLayer.getCellRegion("1-1-1"));
+        System.out.println("插入总耗时：" + (System.currentTimeMillis() - startTime));
+        grid3D.printGrid3D();
+
+        System.out.println("总共插入点:" + grid3D.getTotalElementsNum());
+
+        String outPutDirPath = "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\新建文件夹";
+        List<Tuple2<String, Integer>> nodeElementsTupleList = grid3D.shardToFile(new double[]{0.001, 0.001, 0.001}, outPutDirPath);
+        TxtSplit2.createHrcFile(nodeElementsTupleList, outPutDirPath);
+        //System.out.println(nodeElementsTupleList);
         System.out.println("总耗时：" + (System.currentTimeMillis() - startTime));
 
     }

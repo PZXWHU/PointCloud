@@ -460,7 +460,7 @@ public class LasSplit {
         });
         byte[] hrcBytes = new byte[nodeKeyList.size()];
 
-        for(int i=0;i<nodeKeyList.size();i++){
+        for(int i=0;i<hrcBytes.length;i++){
             String nodeKey = nodeKeyList.get(i);
             byte mask = 0;
 

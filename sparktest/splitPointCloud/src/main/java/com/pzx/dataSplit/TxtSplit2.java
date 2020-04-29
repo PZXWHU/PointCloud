@@ -345,10 +345,11 @@ public class TxtSplit2 {
                 }
             }
         });
+
         byte[] hrcBytes = new byte[nodeKeyList.size()*2];
 
-        for(int i=0;i<nodeKeyList.size();i = i + 2){
-            String nodeKey = nodeKeyList.get(i);
+        for(int i=0;i<hrcBytes.length;i = i + 2){
+            String nodeKey = nodeKeyList.get(i/2);
             byte mask = 0;
 
             for(int j=0;j<8;j++){

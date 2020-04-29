@@ -181,7 +181,17 @@ public class SplitUtils {
         return zigZagBytes;
     }
 
+    public static String createBinFileName(String nodeKey){
+        return (nodeKey.length()-1)+nodeKey+".bin";
+    }
 
+    public static String createHrcFileName(){
+        return "r.hrc";
+    }
+
+    public static String createCloudJSFileName(){
+        return "cloud.js";
+    }
 
     public static void main(String[] args) {
         System.out.println(getTheLevelClod(8,2,0));
