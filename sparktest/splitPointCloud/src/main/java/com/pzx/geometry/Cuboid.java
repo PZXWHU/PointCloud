@@ -10,6 +10,7 @@ import com.google.common.base.Preconditions;
 import org.checkerframework.checker.units.qual.C;
 import org.json4s.scalap.scalasig.ThisType;
 
+import javax.validation.constraints.Max;
 import java.io.Serializable;
 
 public class Cuboid implements WithCuboidMBR, Serializable {
@@ -118,6 +119,18 @@ public class Cuboid implements WithCuboidMBR, Serializable {
                 Math.min(maxX, other.maxX),Math.min(maxY, other.maxY), Math.min(maxZ, other.maxZ) ));
     }
 
+    public Cuboid mergedRegion(Cuboid other){
+        return new Cuboid(Math.min(minX, other.minX), Math.min(minY, other.minY),Math.min(minZ, other.minZ),
+                Math.max(maxX,other.maxX),Math.max(maxY,other.maxY),Math.max(maxZ,other.maxZ) );
+    }
+
+    public Cube toBoundingBoxCube(){
+        double maxSidelength = Math.max(getXSideLength(), getYSideLength());
+        maxSidelength = Math.max(maxSidelength, getZSideLength());
+        return new Cube(minX, minY, minZ, maxSidelength);
+
+    }
+
     /**
      * 将cuboid分为八个子cuboid
      * @return
@@ -197,6 +210,30 @@ public class Cuboid implements WithCuboidMBR, Serializable {
 
     public double getMaxZ() {
         return maxZ;
+    }
+
+    public void setMinX(double minX) {
+        this.minX = minX;
+    }
+
+    public void setMinY(double minY) {
+        this.minY = minY;
+    }
+
+    public void setMinZ(double minZ) {
+        this.minZ = minZ;
+    }
+
+    public void setMaxX(double maxX) {
+        this.maxX = maxX;
+    }
+
+    public void setMaxY(double maxY) {
+        this.maxY = maxY;
+    }
+
+    public void setMaxZ(double maxZ) {
+        this.maxZ = maxZ;
     }
 
     @Override

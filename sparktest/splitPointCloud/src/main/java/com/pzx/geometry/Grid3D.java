@@ -12,6 +12,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import scala.Tuple2;
 
 import java.io.File;
 import java.util.*;
@@ -27,11 +28,11 @@ public class Grid3D {
         this.rootLayer = rootLayer;
     }
 
-    public Grid3D(Cuboid region, double cellSideLength, Cuboid totalRegion) {
+    public Grid3D(Cuboid region, double cellSideLength, Cube totalRegion) {
         this(region, cellSideLength, totalRegion, 15);
     }
 
-    public Grid3D(Cuboid region, double cellSideLength, Cuboid totalRegion, int maxLevel) {
+    public Grid3D(Cuboid region, double cellSideLength, Cube totalRegion, int maxLevel) {
         this.rootLayer = new Grid3DLayer(region, cellSideLength,0, totalRegion, maxLevel);
     }
 
@@ -83,14 +84,15 @@ public class Grid3D {
         return totalElementsNum.getValue();
     }
 
-    public void shardToFile(double[] coordinatesScale, String outputDirPath){
+    public List<Tuple2<String, Integer>> shardToFile(double[] coordinatesScale, String outputDirPath){
+        List<Tuple2<String, Integer>> nodeElementsTupleList = new ArrayList<>();
         rootLayer.traverse(new Grid3DLayer.Visitor() {
             @Override
             public boolean visit(Grid3DLayer grid3DLayer) {
 
                 HashMap<String, List<byte[]>> buffer = new HashMap<>();
                 Map<Long, List<Point3D>> cellElementsMap = grid3DLayer.getCellElementsMap();
-                double[] totalBoundingBox = grid3DLayer.getTotalRegion().getBoundingBox();
+                Cube totalBoundingBox = (Cube)grid3DLayer.getTotalRegion();
 
                 for(Map.Entry<String, HashSet<Long>> entry : grid3DLayer.getNodeCellsMap().entrySet()){
                     String nodeKey = entry.getKey();
@@ -98,12 +100,11 @@ public class Grid3D {
 
                     buffer.putIfAbsent(nodeKey, new ArrayList<>());
                     double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
-                    double[] nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey,totalBoundingBox);
+
 
                     for(Long cellKey : cellKeys){
                         List<byte[]> pointBytes = cellElementsMap.get(cellKey).stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
                         buffer.get(nodeKey).addAll(pointBytes);
-
                     }
 
                 }
@@ -112,18 +113,19 @@ public class Grid3D {
                     String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
                     IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
                     DistributedRedisLock.unlock(nodekey);
+                    nodeElementsTupleList.add(new Tuple2<String, Integer>(nodekey, list.size()));
                 });
-
                 return true;
             }
         });
+        return nodeElementsTupleList;
     }
 
     public static void main(String[] args) {
 
 
         Grid3D grid3D = new Grid3D(new Cuboid(0,0,0,8,8,8),8.0/(1<<6),
-                new Cuboid(0,0,0,8,8,8));
+                new Cube(0,0,0,8));
 
         long startTime = System.currentTimeMillis();
 

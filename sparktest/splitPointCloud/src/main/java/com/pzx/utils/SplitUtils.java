@@ -2,6 +2,8 @@ package com.pzx.utils;
 
 
 
+import com.pzx.geometry.Cube;
+import com.pzx.geometry.Cuboid;
 import com.pzx.geometry.Point3D;
 import static com.pzx.pointCloud.PointCloud.*;
 import org.apache.log4j.Logger;
@@ -63,17 +65,17 @@ public class SplitUtils {
      * @param clod
      * @return
      */
-    public static String getOctreeNodeName(double x,double y,double z,double[] boundingBox,double clod){
+    public static String getOctreeNodeName(double x, double y, double z, Cuboid boundingBox, double clod){
         int dlod = (int)clod;
-        String xLocation = getLocationOnSingleAxis(x,boundingBox[0],boundingBox[3],dlod);
-        String yLocation = getLocationOnSingleAxis(y,boundingBox[1],boundingBox[4],dlod);
-        String zLocation = getLocationOnSingleAxis(z,boundingBox[2],boundingBox[5],dlod);
+        String xLocation = getLocationOnSingleAxis(x,boundingBox.getMaxX(),boundingBox.getMinX(),dlod);
+        String yLocation = getLocationOnSingleAxis(y,boundingBox.getMaxY(),boundingBox.getMinY(),dlod);
+        String zLocation = getLocationOnSingleAxis(z,boundingBox.getMaxZ(),boundingBox.getMinZ(),dlod);
 
         return getNodeName(xLocation,yLocation,zLocation);
 
     }
 
-    public static String getOctreeNodeName(Point3D point3D,double[] boundingBox, double clod){
+    public static String getOctreeNodeName(Point3D point3D,Cuboid boundingBox, double clod){
         return getOctreeNodeName(point3D.x, point3D.y, point3D.z, boundingBox, clod);
     }
 
@@ -89,17 +91,6 @@ public class SplitUtils {
      */
     private static String getLocationOnSingleAxis(double x,double maxx,double minx,int dlod){
         String locationOnSingleAxis = "";
-        /*
-        if(dlod==0)
-            return nodeName;
-
-        double middlex = minx+(maxx-minx)/2;
-        if(x<middlex)
-            return "0"+getLocationOnSingleAxis(x,middlex,minx,dlod-1);
-        else
-            return "1"+getLocationOnSingleAxis(x,maxx,middlex,dlod-1);
-
-         */
 
         if(maxx<minx)
             throw new IllegalArgumentException("输入范围最大最小值颠倒！");
@@ -145,32 +136,26 @@ public class SplitUtils {
      * @param boundingBox
      * @return
      */
-    public static double[] getXYZOffset(String nodeKey,double[] boundingBox){
+    public static double[] getXYZOffset(String nodeKey, Cube boundingBox){
         int level = nodeKey.length()-1;
         double xOffset = 0.0;
         double yOffset = 0.0;
         double zOffset = 0.0;
-        double boxLength = boundingBox[0]-boundingBox[3];
+        double boxLength = boundingBox.getSideLength();
         for(int i=1;i<level+1;i++){
             int childNodeIndex = Integer.valueOf(nodeKey.substring(i,i+1));
             xOffset += Integer.valueOf(childNodeIndex>>2&1)*boxLength/Math.pow(2,i);
             yOffset += Integer.valueOf(childNodeIndex>>1&1)*boxLength/Math.pow(2,i);
             zOffset += Integer.valueOf(childNodeIndex&1)*boxLength/Math.pow(2,i);
         }
-        return new double[]{xOffset+boundingBox[3],yOffset+boundingBox[4],zOffset+boundingBox[5]};
+        return new double[]{xOffset+boundingBox.getMinX(),yOffset+boundingBox.getMinY(),zOffset+boundingBox.getMinZ()};
     }
 
-    public static double[] getNodeBoundingBox(String nodeKey, double[] totalBoundingBox){
+    public static Cube getNodeBoundingBox(String nodeKey, Cube totalBoundingBox){
         double[] xyzOffset = getXYZOffset(nodeKey, totalBoundingBox);
-        double nodeSideLength = (totalBoundingBox[maxX] - totalBoundingBox[minX])/(1<<(nodeKey.length()-1));
+        double nodeSideLength = totalBoundingBox.getSideLength()/(1<<(nodeKey.length()-1));
 
-        double[] nodeBoundingBox = new double[6];
-        nodeBoundingBox[maxX] = xyzOffset[0] + nodeSideLength;
-        nodeBoundingBox[maxY] = xyzOffset[1] + nodeSideLength;
-        nodeBoundingBox[maxZ] = xyzOffset[2] + nodeSideLength;
-        nodeBoundingBox[minX] = xyzOffset[0];
-        nodeBoundingBox[minY] = xyzOffset[1];
-        nodeBoundingBox[minZ] = xyzOffset[2];
+        Cube nodeBoundingBox = new Cube(xyzOffset[0], xyzOffset[1], xyzOffset[2], nodeSideLength);
 
         return nodeBoundingBox;
     }

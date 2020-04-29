@@ -1,5 +1,6 @@
 package com.pzx.lasFile;
 
+import com.pzx.geometry.Cuboid;
 import com.pzx.utils.LittleEndianUtils;
 
 import java.nio.MappedByteBuffer;
@@ -180,10 +181,10 @@ public class LasFileHeader {
 
     /**
      *
-     * @return new double[]{{maxX,maxY.maxZ,minX,minY,minZ}
+     * @return
      */
-    public double[] getBox(){
-        return new double[]{getMaxX(),getMaxY(),getMaxZ(),getMinX(),getMinY(),getMinZ()};
+    public Cuboid getBox(){
+        return new Cuboid(getMinX(),getMinY(),getMinZ(), getMaxX(),getMaxY(),getMaxZ());
     }
 
 

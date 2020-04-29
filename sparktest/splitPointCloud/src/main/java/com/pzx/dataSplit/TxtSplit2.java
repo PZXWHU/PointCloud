@@ -32,6 +32,7 @@ import static com.pzx.pointCloud.PointCloud.*;
 import java.io.File;
 import java.io.Serializable;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 根据正方体网格和八叉树进行点云LOD构建和数据分片
@@ -106,12 +107,12 @@ public class TxtSplit2 {
 
         time = System.currentTimeMillis();
         //切分点云
-        splitPointCloud(point3DDataset,pointCloud,outputDirPath);
+        List<Tuple2<String, Integer>> nodeElementsNumTupleList = splitPointCloud(point3DDataset,pointCloud,outputDirPath);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成, 耗时："+(System.currentTimeMillis()-time));
 
         time = System.currentTimeMillis();
         //创建索引文件
-        LasSplit.createHrcFile(outputDirPath);
+        createHrcFile(nodeElementsNumTupleList, outputDirPath);
         logger.info("-----------------------------------生成索引文件r.hrc, 耗时："+(System.currentTimeMillis()-time));
 
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-totalTime));
@@ -134,36 +135,36 @@ public class TxtSplit2 {
             public PointCloud zero() {
                 PointCloud pointCloud = new PointCloud();
                 pointCloud.setPoints(0);
-                pointCloud.setTightBoundingBox(new double[]{-Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE,
-                        Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE});
+                pointCloud.setTightBoundingBox(new Cuboid(Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,
+                        -Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE ));
                 return pointCloud;
             }
             @Override
             public PointCloud reduce(PointCloud pointCloud, Point3D point3D) {
                 pointCloud.setPoints(pointCloud.getPoints() + 1);
-                double[] tightBoundingBox = pointCloud.getTightBoundingBox();
+                Cuboid tightBoundingBox = pointCloud.getTightBoundingBox();
 
-                tightBoundingBox[0] = Math.max(point3D.x, tightBoundingBox[0]);
-                tightBoundingBox[1] = Math.max(point3D.y, tightBoundingBox[1]);
-                tightBoundingBox[2] = Math.max(point3D.z, tightBoundingBox[2]);
-                tightBoundingBox[3] = Math.min(point3D.x,tightBoundingBox[3]);
-                tightBoundingBox[4] = Math.min(point3D.y,tightBoundingBox[4]);
-                tightBoundingBox[5] = Math.min(point3D.z,tightBoundingBox[5]);
+                tightBoundingBox.setMaxX(Math.max(point3D.x, tightBoundingBox.getMaxX()));
+                tightBoundingBox.setMaxY(Math.max(point3D.y, tightBoundingBox.getMaxY()));
+                tightBoundingBox.setMaxZ(Math.max(point3D.z, tightBoundingBox.getMaxZ()));
+                tightBoundingBox.setMinX(Math.min(point3D.x,tightBoundingBox.getMinX()));
+                tightBoundingBox.setMinY(Math.min(point3D.y,tightBoundingBox.getMinY()));
+                tightBoundingBox.setMaxZ(Math.min(point3D.z,tightBoundingBox.getMinZ()));
 
                 return pointCloud;
             }
             @Override
             public PointCloud merge(PointCloud pointCloud1, PointCloud pointCloud2) {
                 pointCloud1.setPoints(pointCloud1.getPoints() + pointCloud2.getPoints());
-                double[] tightBoundingBox1 = pointCloud1.getTightBoundingBox();
-                double[] tightBoundingBox2 = pointCloud2.getTightBoundingBox();
+                Cuboid tightBoundingBox1 = pointCloud1.getTightBoundingBox();
+                Cuboid tightBoundingBox2 = pointCloud2.getTightBoundingBox();
 
-                tightBoundingBox1[0] = Math.max(tightBoundingBox1[0], tightBoundingBox2[0]);
-                tightBoundingBox1[1] = Math.max(tightBoundingBox1[1], tightBoundingBox2[1]);
-                tightBoundingBox1[2] = Math.max(tightBoundingBox1[2], tightBoundingBox2[2]);
-                tightBoundingBox1[3] = Math.min(tightBoundingBox1[3], tightBoundingBox2[3]);
-                tightBoundingBox1[4] = Math.min(tightBoundingBox1[4], tightBoundingBox2[4]);
-                tightBoundingBox1[5] = Math.min(tightBoundingBox1[5], tightBoundingBox2[5]);
+                tightBoundingBox1.setMaxX(Math.max(tightBoundingBox1.getMaxX(), tightBoundingBox2.getMaxX()));
+                tightBoundingBox1.setMaxY(Math.max(tightBoundingBox1.getMaxY(), tightBoundingBox2.getMaxY()));
+                tightBoundingBox1.setMaxZ(Math.max(tightBoundingBox1.getMaxZ(), tightBoundingBox2.getMaxZ()));
+                tightBoundingBox1.setMinX(Math.min(tightBoundingBox1.getMinX(), tightBoundingBox2.getMinX()));
+                tightBoundingBox1.setMinY(Math.min(tightBoundingBox1.getMinY(), tightBoundingBox2.getMinY()));
+                tightBoundingBox1.setMinZ(Math.min(tightBoundingBox1.getMinZ(), tightBoundingBox2.getMinZ()));
 
                 return pointCloud1;
             }
@@ -198,7 +199,7 @@ public class TxtSplit2 {
 
 
 
-    public static void splitPointCloud(Dataset<Point3D> point3DDataset, PointCloud pointCloud,String outputDirPath){
+    public static List<Tuple2<String, Integer>> splitPointCloud(Dataset<Point3D> point3DDataset, PointCloud pointCloud,String outputDirPath){
 
         double[] coordinatesScale = pointCloud.getScales();
 
@@ -207,11 +208,11 @@ public class TxtSplit2 {
         OcTreePartitioner ocTreePartitioner = partitionedResultTuple._2;
 
         JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDD);
-        System.out.println("重分区之后的RDD的分区数："+ partitionedRDD.partitions().size());
-        System.out.println("剪枝优化之后的RDD的分区数："+ prunedRDDWithOriginalPartitionID.partitions().size());
+        logger.info("----------------------------------重分区之后的RDD的分区数："+ partitionedRDD.partitions().size());
+        logger.info("----------------------------------剪枝优化之后的RDD的分区数："+ prunedRDDWithOriginalPartitionID.partitions().size());
 
         List<Cuboid> partitionRegions = ocTreePartitioner.getPartitionRegions();
-        Cuboid partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions();
+        Cube partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions().toBoundingBoxCube();
 
         //初始网格一个坐标轴的单元数,网格单元边长
         int initGridOneSideCellNum = 1 << 5;
@@ -221,7 +222,7 @@ public class TxtSplit2 {
         //广播变量
         Broadcast<List<Cuboid>> partitionRegionsBroadcast = sparkSession.sparkContext().broadcast(partitionRegions, ClassManifestFactory.classType(List.class));
 
-        prunedRDDWithOriginalPartitionID.mapPartitions((Iterator<Tuple2<Integer,Point3D>> iterator) ->{
+        List<Tuple2<String, Integer>> nodeElementsNumTupleList = prunedRDDWithOriginalPartitionID.mapPartitions((Iterator<Tuple2<Integer,Point3D>> iterator) ->{
 
             Tuple2<Integer, Point3D> pointWithOriginalPartitionID = iterator.next();
             Cuboid partitionRegion = partitionRegionsBroadcast.getValue().get(pointWithOriginalPartitionID._1);
@@ -232,12 +233,12 @@ public class TxtSplit2 {
                 grid3D.insert(iterator.next()._2);
             }
 
-            grid3D.shardToFile(coordinatesScale,outputDirPath);
+            List<Tuple2<String, Integer>> partitionNodeElementsNumTupleList = grid3D.shardToFile(coordinatesScale,outputDirPath);
 
-            return Collections.emptyIterator();
-        }, true).foreach(o -> {});
+            return partitionNodeElementsNumTupleList.iterator();
+        }, true).collect();
 
-
+        return nodeElementsNumTupleList;
     }
 
     /**
@@ -252,10 +253,10 @@ public class TxtSplit2 {
         List<Point3D> samples = point3DJavaRDD.sample(false,sampleFraction).collect();
 
         int partitionNum = point3DJavaRDD.partitions().size();
-        double[] boundingBox = pointCloud.getBoundingBox();
+        Cube boundingBox = pointCloud.getBoundingBox();
         //将分区范围扩大一点点，避免因浮点数精度问题，导致与边界重合的点不在范围内
         //传入正方体范围以便后面的网格处理
-        Cube partitionsTotalRegion = (Cube) new Cube(boundingBox[minX],boundingBox[minY],boundingBox[minZ],(boundingBox[maxX] - boundingBox[minX])).expandLittle();
+        Cube partitionsTotalRegion = (Cube) boundingBox.expandLittle();
 
         OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion,partitionNum);
         OcTreePartitioner ocTreePartitioner = ocTreePartitioning.getPartitioner();
@@ -323,6 +324,55 @@ public class TxtSplit2 {
         return prunedRDDWithOriginalPartitionID.toJavaRDD();
     }
 
+    /**
+     *创建八叉树层次文件，并且在节点名后增加点数字节
+     * @param outputDirPath 输出目录
+     */
+    public static void createHrcFile(List<Tuple2<String, Integer>> nodeElementsTupleList, String outputDirPath){
+
+        Map<String, Integer> nodeElementMap = nodeElementsTupleList.stream().collect(Collectors.groupingBy(Tuple2::_1, Collectors.reducing(0, Tuple2::_2, Integer::sum)));
+
+        byte[] hrcBytes = createHrcBytes(nodeElementMap);
+
+        try {
+            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+
+    public static byte[] createHrcBytes(Map<String, Integer> nodeElementsNumMap){
+        List<String> nodeKeyList = nodeElementsNumMap.keySet().stream().collect(Collectors.toList());
+
+        nodeKeyList.sort(new Comparator<String>() {
+            @Override
+            public int compare(String o1, String o2) {
+                if(o1.length()>o2.length())
+                    return 1;
+                else if (o1.length()<o2.length())
+                    return -1;
+                else {
+                    return o1.compareTo(o2);
+                }
+            }
+        });
+        byte[] hrcBytes = new byte[nodeKeyList.size()*2];
+
+        for(int i=0;i<nodeKeyList.size();i = i + 2){
+            String nodeKey = nodeKeyList.get(i);
+            byte mask = 0;
+
+            for(int j=0;j<8;j++){
+                if(nodeElementsNumMap.containsKey(nodeKey+j))
+                    mask = (byte) (mask|1<<j);
+            }
+            hrcBytes[i] = mask;
+            hrcBytes[i+1] = (byte) nodeElementsNumMap.get(nodeKey).intValue();
+        }
+        return hrcBytes;
+    }
 
 
     /** 可用于建立全局索引

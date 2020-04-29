@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
+import com.pzx.geometry.Cube;
+import com.pzx.geometry.Cuboid;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.SparkUtils;
@@ -84,13 +86,13 @@ public class TxtSplit1 {
     public static PointCloud createCloudJS(Dataset<Row> dataset, String  outputDirPath){
 
 
-        Dataset<Row> cloudJSDataSet  = dataset.select(max("x"),max("y"),max("z"),
-                min("x"),min("y"),min("z"),count(col("x")));
+        Dataset<Row> cloudJSDataSet  = dataset.select(min("x"),min("y"),min("z"),
+                max("x"),max("y"),max("z"),count(col("x")));
 
         Row cloudJSRow = cloudJSDataSet.collectAsList().get(0);
         long points = cloudJSRow.getLong(6);
-        double[] tightBoundingBox =  new double[]{cloudJSRow.getDouble(0),cloudJSRow.getDouble(1),cloudJSRow.getDouble(2),
-                cloudJSRow.getDouble(3),cloudJSRow.getDouble(4),cloudJSRow.getDouble(5)};
+        Cuboid tightBoundingBox =  new Cuboid(cloudJSRow.getDouble(0),cloudJSRow.getDouble(1),cloudJSRow.getDouble(2),
+                cloudJSRow.getDouble(3),cloudJSRow.getDouble(4),cloudJSRow.getDouble(5));
 
         double[] scales = new double[]{0.001,0.001,0.001};
 
@@ -106,18 +108,17 @@ public class TxtSplit1 {
     public static void splitPointCloud(Dataset<Row> dataset, PointCloud pointCloud,String outputDirPath){
 
         //广播变量
-        double[] boundingBox = pointCloud.getBoundingBox();
+        Cube boundingBox = pointCloud.getBoundingBox();
         double[] scale = pointCloud.getScales();
 
         //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
-        double[] tightBoundingBox = pointCloud.getTightBoundingBox();
+        Cuboid tightBoundingBox = pointCloud.getTightBoundingBox();
 
 
-        if((tightBoundingBox[0]-tightBoundingBox[3])<(boundingBox[0]-boundingBox[3])/3.0||
-                (tightBoundingBox[1]-tightBoundingBox[4])<(boundingBox[0]-boundingBox[3])/3.0||
-                (tightBoundingBox[2]-tightBoundingBox[5])<(boundingBox[0]-boundingBox[3])/3.0){
+        if((tightBoundingBox.getMaxX()-tightBoundingBox.getMinX())<(boundingBox.getMaxX()-boundingBox.getMinX())/3.0||
+                (tightBoundingBox.getMaxY()-tightBoundingBox.getMinY())<(boundingBox.getMaxY()-boundingBox.getMinY())/3.0||
+                (tightBoundingBox.getMaxZ()-tightBoundingBox.getMinZ())<(boundingBox.getMaxZ()-boundingBox.getMinZ())/3.0){
             dimension = 2;
-
         }
         final int splitDimension = dimension;
         logger.info("----------------------------------------此次分片的维度为："+splitDimension);

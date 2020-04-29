@@ -5,9 +5,13 @@ import com.pzx.HBaseUtils;
 import com.pzx.HDFSUtils;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
+import com.pzx.geometry.Cube;
+import com.pzx.geometry.Cuboid;
 import com.pzx.lasFile.LasFile;
 import com.pzx.lasFile.LasFileHeader;
 import com.pzx.lasFile.LasFilePointData;
+import com.pzx.pointCloud.PointAttribute;
+import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.LittleEndianUtils;
 
 import com.pzx.utils.CloudJSUtils;
@@ -15,6 +19,7 @@ import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
+import org.apache.ivy.plugins.parser.m2.PomReader;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -52,10 +57,10 @@ public class LasSplit {
         long time = System.currentTimeMillis();
         List<String> lasFilePathList = IOUtils.listAllFiles(inputDirPath).stream().filter((x)->{return x.endsWith(".las");}).collect(Collectors.toList());
 
-        JSONObject cloudjs = createCloudJS(lasFilePathList,outputDirPath);
+        PointCloud pointCloud = createCloudJS(lasFilePathList,outputDirPath);
         logger.info("-----------------------------------生成点云信息文件cloud.js");
 
-        splitPointCloud(lasFilePathList,cloudjs,outputDirPath);
+        splitPointCloud(lasFilePathList,pointCloud,outputDirPath);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
 
 
@@ -73,16 +78,16 @@ public class LasSplit {
      * @param outputDirPath 输出路径，cloud.js文件将写到此目录下
      * @return 点云信息cloud.js (JSONObject)
      */
-    public static JSONObject createCloudJS(List<String> lasFilePathList,String outputDirPath){
-        JSONObject cloudJS = getPointCloudInformationJson(lasFilePathList);
+    public static PointCloud createCloudJS(List<String> lasFilePathList,String outputDirPath){
+        PointCloud pointCloud = getPointCloudInformation(lasFilePathList);
         try {
             //HBaseUtils.put(tableName,"cloud","data","js",cloudJS.toJSONString().getBytes("utf-8"));
-            IOUtils.writerDataToFile(outputDirPath+ File.separator+"cloud.js",cloudJS.toJSONString().getBytes("utf-8"),false);
+            IOUtils.writerDataToFile(outputDirPath+ File.separator+"cloud.js",pointCloud.buildCloudJS().toJSONString().getBytes("utf-8"),false);
         }catch (Exception e){
             e.printStackTrace();
             logger.warn("cloud.js文件生成失败");
         }
-        return cloudJS;
+        return pointCloud;
     }
 
 
@@ -91,10 +96,11 @@ public class LasSplit {
      * @param lasFilePathList 输入目录下所有las文件的文件路径
      * @return 点云信息cloud.js (JSONObject)
      */
-    private static JSONObject getPointCloudInformationJson(List<String> lasFilePathList){
+    private static PointCloud getPointCloudInformation(List<String> lasFilePathList){
         long points = 0L;
         double[] scale = new double[]{1,1,1};
-        double[] tightBoundingBox = new double[]{-Double.MIN_VALUE,-Double.MIN_VALUE,-Double.MIN_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE};
+        Cuboid tightBoundingBox = new Cuboid(Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,
+                -Double.MIN_VALUE,-Double.MIN_VALUE,-Double.MIN_VALUE);
         double[] boundingBox;
 
         for(String lasFilePath:lasFilePathList){
@@ -109,18 +115,14 @@ public class LasSplit {
                 scale[i] = Math.min(scale[i],lasScale[i]);
             }
             //tightBoundingBox
-            double[] lasTightBounding = lasFileHeader.getBox();
-            for (int i=0;i<3;i++){
-                tightBoundingBox[i] = Math.max(tightBoundingBox[i],lasTightBounding[i]);
-                tightBoundingBox[i+3] = Math.min(tightBoundingBox[i+3],lasTightBounding[i+3]);
-            }
+            Cuboid lasTightBounding = lasFileHeader.getBox();
+            tightBoundingBox = tightBoundingBox.mergedRegion(lasTightBounding);
         }
 
-        boundingBox = CloudJSUtils.getBoundingBox(tightBoundingBox);
-        String[] pointAttributes = new String[]{"POSITION_CARTESIAN","RGB_PACKED"};
-        JSONObject cloudjs = CloudJSUtils.buildCloudJS(points,tightBoundingBox,boundingBox,scale,pointAttributes);
+        List<PointAttribute> pointAttributes = Arrays.asList(PointAttribute.POSITION_XYZ, PointAttribute.RGB);
+        PointCloud pointCloud = new PointCloud(points, tightBoundingBox, pointAttributes,scale );
 
-        return cloudjs;
+        return pointCloud;
     }
 
 
@@ -130,14 +132,14 @@ public class LasSplit {
     /**
      * 点云分片
      * @param lasFilePathList 输入目录下所有las文件的文件路径
-     * @param cloudjs 点云信息cloud.js (JSONObject)
+     * @param pointCloud 点云总体信息
      * @param outputDirPath 输出目录
      */
-    public static void splitPointCloud(List<String> lasFilePathList,JSONObject cloudjs,String outputDirPath){
+    public static void splitPointCloud(List<String> lasFilePathList,PointCloud pointCloud,String outputDirPath){
         JavaSparkContext sc = SparkUtils.sparkContextInit();
 
         ExecutorService executorService = Executors.newCachedThreadPool();
-        long points = cloudjs.getLong("points");
+        long points = pointCloud.getPoints();
 
         List<CountDownLatch> countDownLatchList = new ArrayList<>();
 
@@ -176,7 +178,7 @@ public class LasSplit {
                     executorService.execute(()->{
 
                         logger.info("-------------------------------------------------------------提交spark任务"+sparkTaskIndex);
-                        doSparkTask(sc,tmpFileName ,cloudjs,outputDirPath);
+                        doSparkTask(sc,tmpFileName ,pointCloud,outputDirPath);
                         countDownLatch.countDown();
                         logger.info("-------------------------------------------------------------spark任务"+sparkTaskIndex+"结束");
                     });
@@ -225,30 +227,28 @@ public class LasSplit {
      * spark任务完成，删除中间文件
      * @param sc JavaSparkContext用于触发spark任务
      * @param tmpFileName 中间文件名，spark任务的源数据
-     * @param cloudjs 点云的信息，包括包围盒，总点数，用于广播变量（rdd转换使用）
+     * @param pointCloud 点云的信息，包括包围盒，总点数，用于广播变量（rdd转换使用）
      * @param outputDirPath 输出目录
      */
-    public static void doSparkTask(JavaSparkContext sc,String tmpFileName,JSONObject cloudjs,String outputDirPath){
+    public static void doSparkTask(JavaSparkContext sc,String tmpFileName,PointCloud pointCloud,String outputDirPath){
 
         //广播变量
-        JSONObject boundingBoxJson = cloudjs.getJSONObject("boundingBox");
-        double[] boundingBox = new double[]{boundingBoxJson.getDoubleValue("ux"),boundingBoxJson.getDoubleValue("uy"),boundingBoxJson.getDoubleValue("uz"),
-                boundingBoxJson.getDoubleValue("lx"),boundingBoxJson.getDoubleValue("ly"),boundingBoxJson.getDoubleValue("lz")};
-        double[] scale = (double[])cloudjs.get("scale");
+        Cube boundingBox = pointCloud.getBoundingBox();
+        double[] scale = pointCloud.getScales();
 
 
         //如果tightBoundingBox某一边小于其他边10倍的话，采用四叉树分片
-        JSONObject tightBoundingBoxJson = cloudjs.getJSONObject("tightBoundingBox");
+        Cuboid tightBoundingBox = pointCloud.getTightBoundingBox();
 
-        if((tightBoundingBoxJson.getDoubleValue("ux")-tightBoundingBoxJson.getDoubleValue("lx"))<(boundingBox[0]-boundingBox[3])/10.0||
-                (tightBoundingBoxJson.getDoubleValue("uy")-tightBoundingBoxJson.getDoubleValue("ly"))<(boundingBox[0]-boundingBox[3])/10.0||
-                (tightBoundingBoxJson.getDoubleValue("uz")-tightBoundingBoxJson.getDoubleValue("lz"))<(boundingBox[0]-boundingBox[3])/10.0){
+        if((tightBoundingBox.getXSideLength())<(boundingBox.getSideLength())/10.0||
+                (tightBoundingBox.getYSideLength())<(boundingBox.getSideLength())/10.0||
+                (tightBoundingBox.getZSideLength())<(boundingBox.getSideLength())/10.0){
             dimension = 2;
 
         }
         final int splitDimension = dimension;
         logger.info("----------------------------------------此次分片的维度为："+splitDimension);
-        int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,splitDimension);
+        int maxLevel = SplitUtils.getMaxLevel(pointCloud.getPoints(),pointNumPerNode,splitDimension);
         logger.info("----------------------------------------此次分片的最大层级为为："+maxLevel);
 
         JavaRDD<byte[]>pointBytesRDD = sc.binaryRecords(outputDirPath+File.separator+tmpFileName,27);

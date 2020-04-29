@@ -27,7 +27,7 @@ public class Grid3DLayer {
     private int maxLevel;
     private Grid3DLayer child;
     private Cuboid region;//当前此网格的范围（分区网格范围）
-    private Cuboid totalRegion; //所有网格的整体范围（全局网格范围）
+    private Cube totalRegion; //所有网格的整体范围（全局网格范围）
     private double cellSideLength;
 
 
@@ -44,7 +44,7 @@ public class Grid3DLayer {
     private Map<Long, List<Point3D>> cellElementsMap = new HashMap<>();
 
 
-    public Grid3DLayer(Cuboid region, double cellSideLength , int level, Cuboid totalRegion ,int maxLevel){
+    public Grid3DLayer(Cuboid region, double cellSideLength , int level, Cube totalRegion ,int maxLevel){
         this.region = region;
         this.totalRegion = totalRegion;
         this.cellSideLength = cellSideLength;
@@ -65,7 +65,7 @@ public class Grid3DLayer {
         cellElementsMap.putIfAbsent(gridCellKey, new ArrayList<Point3D>());
 
         //添加八叉树节点对应的网格单元
-        String nodeKey = SplitUtils.getOctreeNodeName(getCellCenter(gridCellKey), totalRegion.getBoundingBox(), level);
+        String nodeKey = SplitUtils.getOctreeNodeName(getCellCenter(gridCellKey), totalRegion, level);
 
         nodeCellsMap.putIfAbsent(nodeKey, new HashSet<>());
         nodeCellsMap.get(nodeKey).add(gridCellKey);
@@ -148,12 +148,10 @@ public class Grid3DLayer {
             return nodeMaxCellNumMap.get(nodeKey);
         }
 
-        double[] nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey, totalRegion.getBoundingBox());
-        Cuboid intersectedRegion = region.intersectedRegion(new Cuboid(nodeBoundingBox[minX],nodeBoundingBox[minY],nodeBoundingBox[minZ],
-                nodeBoundingBox[maxX],nodeBoundingBox[maxY],nodeBoundingBox[maxZ])).orNull();
+        Cube nodeBoundingBox = SplitUtils.getNodeBoundingBox(nodeKey, totalRegion);
+        Cuboid intersectedRegion = region.intersectedRegion(nodeBoundingBox).orNull();
         if(intersectedRegion==null){
-            throw new RuntimeException(nodeKey + totalRegion + region + new Cuboid(nodeBoundingBox[minX],nodeBoundingBox[minY],nodeBoundingBox[minZ],
-                    nodeBoundingBox[maxX],nodeBoundingBox[maxY],nodeBoundingBox[maxZ]));
+            throw new RuntimeException(nodeKey + totalRegion + region + nodeBoundingBox);
         }
         long nodeMaxCellNum = (long) (Math.ceil(intersectedRegion.getXSideLength()/ cellSideLength) *
                 Math.ceil(intersectedRegion.getYSideLength()/ cellSideLength)*
