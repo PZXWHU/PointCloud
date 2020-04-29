@@ -11,6 +11,7 @@ import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.utils.SparkUtils;
 import org.apache.commons.io.Charsets;
 import org.apache.log4j.Logger;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.broadcast.Broadcast;
@@ -203,12 +204,12 @@ public class TxtSplit2 {
 
         double[] coordinatesScale = pointCloud.getScales();
 
-        Tuple2<JavaRDD<Point3D>, OcTreePartitioner> partitionedResultTuple = spatialPartitioning(point3DDataset.toJavaRDD(),pointCloud);
-        JavaRDD<Point3D> partitionedRDD = partitionedResultTuple._1;
+        Tuple2<JavaPairRDD<Integer, Point3D>, OcTreePartitioner> partitionedResultTuple = spatialPartitioning(point3DDataset.toJavaRDD(),pointCloud);
+        JavaPairRDD<Integer, Point3D> partitionedRDDWithPartitionID = partitionedResultTuple._1;
         OcTreePartitioner ocTreePartitioner = partitionedResultTuple._2;
 
-        JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDD);
-        logger.info("----------------------------------重分区之后的RDD的分区数："+ partitionedRDD.partitions().size());
+        JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDDWithPartitionID);
+        logger.info("----------------------------------重分区之后的RDD的分区数："+ partitionedRDDWithPartitionID.partitions().size());
         logger.info("----------------------------------剪枝优化之后的RDD的分区数："+ prunedRDDWithOriginalPartitionID.partitions().size());
 
         List<Cuboid> partitionRegions = ocTreePartitioner.getPartitionRegions();
@@ -247,7 +248,7 @@ public class TxtSplit2 {
      * @param pointCloud
      * @return
      */
-    public static Tuple2<JavaRDD<Point3D>, OcTreePartitioner> spatialPartitioning(JavaRDD<Point3D> point3DJavaRDD, PointCloud pointCloud){
+    public static Tuple2<JavaPairRDD<Integer,Point3D>, OcTreePartitioner> spatialPartitioning(JavaRDD<Point3D> point3DJavaRDD, PointCloud pointCloud){
 
         double sampleFraction = 0.01;//百分之一
         List<Point3D> samples = point3DJavaRDD.sample(false,sampleFraction).collect();
@@ -264,7 +265,7 @@ public class TxtSplit2 {
         //广播变量
         Broadcast<OcTreePartitioner> ocTreePartitionerBroadcast = sparkSession.sparkContext().broadcast(ocTreePartitioner, ClassManifestFactory.classType(OcTreePartitioner.class));
 
-        JavaRDD<Point3D> partitionedRDD = point3DJavaRDD.mapPartitionsToPair(pointIterator -> {
+        JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID = point3DJavaRDD.mapPartitionsToPair(pointIterator -> {
 
             OcTreePartitioner executorOcTreePartitioner = ocTreePartitionerBroadcast.getValue();
             List<Tuple2<Integer, Point3D>> result = new ArrayList<>();
@@ -274,52 +275,39 @@ public class TxtSplit2 {
                 result.add(new Tuple2<Integer, Point3D>(partitionID, point3D));
             }
             return result.iterator();
-        }).partitionBy(ocTreePartitioner).map( (Tuple2<Integer, Point3D> tuple ) -> tuple._2 );
+        }).partitionBy(ocTreePartitioner);
 
-        return new Tuple2<JavaRDD<Point3D>, OcTreePartitioner>(partitionedRDD, ocTreePartitioner);
+        return new Tuple2<JavaPairRDD<Integer,Point3D>, OcTreePartitioner>(partitionedRDDWithPartitionID, ocTreePartitioner);
     }
 
     /**
      * 分区裁剪，排除没有数据的分区
-     * @param partitionedRDD
+     * @param partitionedRDDWithPartitionID
      * @return
      */
-    public static JavaRDD<Tuple2<Integer,Point3D>> partitionsPruning(JavaRDD<Point3D> partitionedRDD){
-        java.util.List<Tuple2<Integer, Boolean>> partitionIsWithElementsList = partitionedRDD.mapPartitionsWithIndex((index, iterator) ->{
+    public static JavaRDD<Tuple2<Integer,Point3D>> partitionsPruning(JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID){
+        Map<Integer, Boolean> partitionIsEmptyMap = partitionedRDDWithPartitionID.mapPartitionsWithIndex((index, iterator) ->{
             //如果分区为空，则返回false
             if (!iterator.hasNext()){
                 return Arrays.asList(new Tuple2<Integer, Boolean>(index, false)).iterator();
             }
             return Arrays.asList(new Tuple2<Integer, Boolean>(index, true)).iterator();
-        },true).collect();
-
-        Map<Integer, Boolean> partitionIsWithElementsMap = new HashMap<>();
-        for(Tuple2<Integer, Boolean> tuple : partitionIsWithElementsList){
-            partitionIsWithElementsMap.put(tuple._1,tuple._2);
-        }
+        },true).collect().stream().collect(Collectors.toMap(Tuple2::_1, Tuple2::_2));
 
         class PartitionPruningFunction extends AbstractFunction1<Object, Object> implements Serializable{
-            Map<Integer, Boolean> partitionIsWithElementsMap;
-            public PartitionPruningFunction(Map<Integer, Boolean> partitionIsWithElementsMap){
-                this.partitionIsWithElementsMap =partitionIsWithElementsMap;
+            Map<Integer, Boolean> partitionIsEmptyMap;
+            public PartitionPruningFunction(Map<Integer, Boolean> partitionIsEmptyMap){
+                this.partitionIsEmptyMap = partitionIsEmptyMap;
             }
             @Override
             public Boolean apply(Object v1) {
-                return partitionIsWithElementsMap.get((int)v1);
+                return partitionIsEmptyMap.get((int)v1);
             }
         }
 
-        JavaRDD<Tuple2<Integer, Point3D>> partitionedRDDWithPartitionID = partitionedRDD.mapPartitionsWithIndex((index, iterator)->{
-            List<Tuple2<Integer, Point3D>> tuple2List = new ArrayList<>();
-            while (iterator.hasNext()){
-                tuple2List.add(new Tuple2<Integer, Point3D>(index, iterator.next()));
-            }
-            return tuple2List.iterator();
-        }, true);
-
         //分区裁剪RDD，传入函数，根据分区id计算出布尔值，true则保留分区，false裁剪分区
         PartitionPruningRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = PartitionPruningRDD.create(partitionedRDDWithPartitionID.rdd(),
-                new PartitionPruningFunction(partitionIsWithElementsMap));
+                new PartitionPruningFunction(partitionIsEmptyMap));
 
         return prunedRDDWithOriginalPartitionID.toJavaRDD();
     }
