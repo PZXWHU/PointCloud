@@ -4,15 +4,16 @@ import com.pzx.IOUtils;
 import scala.Tuple2;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class HrcFile {
+public class HrcFile implements Serializable {
 
-    private static Comparator<String> nodeKeyComparator = new Comparator<String>() {
+    public static class NodeKeyComparator implements Comparator<String>,Serializable{
         @Override
         public int compare(String o1, String o2) {
             if(o1.length()>o2.length())
@@ -23,7 +24,9 @@ public class HrcFile {
                 return o1.compareTo(o2);
             }
         }
-    };
+    }
+
+    public static Comparator<String> nodeKeyComparator = new NodeKeyComparator();
 
     /**
      * 利用输出目录中所有的bin文件的文件名（即nodeKey），生成索引文件

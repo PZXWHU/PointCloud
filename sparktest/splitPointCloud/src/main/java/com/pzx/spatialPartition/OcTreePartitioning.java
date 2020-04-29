@@ -26,6 +26,7 @@ public class OcTreePartitioning implements Serializable {
     }
 
     public OcTreePartitioner getPartitioner(){
+        ocTree.clearAllElements();
         return new OcTreePartitioner(ocTree);
     }
 

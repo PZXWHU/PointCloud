@@ -18,15 +18,6 @@ public class OcTreeNode<T extends WithCuboidMBR> implements Serializable {
 
     private int level;
 
-    public static final int REGION_SX_SY_SZ = Integer.parseInt("000",2);
-    public static final int REGION_BX_SY_SZ = Integer.parseInt("100",2);
-    public static final int REGION_SX_BY_SZ = Integer.parseInt("010",2);
-    public static final int REGION_BX_BY_SZ = Integer.parseInt("110",2);
-    public static final int REGION_SX_SY_BZ = Integer.parseInt("001",2);
-    public static final int REGION_BX_SY_BZ = Integer.parseInt("101",2);
-    public static final int REGION_SX_BY_BZ = Integer.parseInt("011",2);
-    public static final int REGION_BX_BY_BZ = Integer.parseInt("111",2);
-
     private long maxElementsPerNode;
 
     private int maxLevel;

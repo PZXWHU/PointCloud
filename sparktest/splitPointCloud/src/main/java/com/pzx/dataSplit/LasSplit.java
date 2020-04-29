@@ -1,7 +1,5 @@
 package com.pzx.dataSplit;
 
-import com.alibaba.fastjson.JSONObject;
-import com.pzx.HBaseUtils;
 import com.pzx.HDFSUtils;
 import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
@@ -15,12 +13,8 @@ import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.LittleEndianUtils;
 
-import com.pzx.utils.CloudJSUtils;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
-import org.apache.ivy.plugins.parser.m2.PomReader;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;

@@ -40,8 +40,7 @@ public class DataImport
             Connection hbaseConnection = HBaseUtils.getConnection();
             HBaseUtils.createTable(tableName,new String[]{"data"});
 
-            Table table = hbaseConnection.getTable(TableName.valueOf(tableName));
-            file2HBase(dataDirStr,table);
+            file2HBase(dataDirStr,tableName,hbaseConnection);
 
         }catch (Exception e){
             logger.warn("failed");
@@ -50,7 +49,9 @@ public class DataImport
     }
 
 
-    public static void file2HBase(String dataDirStr,Table table)throws Exception {
+    public static void file2HBase(String dataDirStr,String tableName, Connection hbaseConnection)throws Exception {
+
+        Table table = hbaseConnection.getTable(TableName.valueOf(tableName));
         List<Put> puts = new ArrayList<>();
 
         List<String> filePathList = IOUtils.listAllFiles(dataDirStr);

@@ -7,10 +7,13 @@ import com.pzx.geometry.Cuboid;
 import com.pzx.geometry.Point3D;
 import static com.pzx.pointCloud.PointCloud.*;
 import org.apache.log4j.Logger;
+import scala.Tuple2;
 
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SplitUtils {
 
@@ -191,6 +194,12 @@ public class SplitUtils {
 
     public static String createCloudJSFileName(){
         return "cloud.js";
+    }
+
+    public static  <T, U> List<Tuple2<T, U>> mapToTupleList(Map<T, U> map){
+        List<Tuple2<T, U>> tupleList = map.entrySet().stream()
+                .map(entry->new Tuple2<T, U>(entry.getKey(), entry.getValue())).collect(Collectors.toList());
+        return tupleList;
     }
 
     public static void main(String[] args) {

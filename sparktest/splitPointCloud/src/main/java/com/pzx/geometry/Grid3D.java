@@ -3,6 +3,7 @@ package com.pzx.geometry;
 import com.pzx.IOUtils;
 import com.pzx.dataSplit.TxtSplit2;
 import com.pzx.distributedLock.DistributedRedisLock;
+import com.pzx.pointCloud.HrcFile;
 import com.pzx.utils.SparkUtils;
 import com.pzx.utils.SplitUtils;
 import javafx.scene.chart.CategoryAxisBuilder;
@@ -202,7 +203,7 @@ public class Grid3D {
 
         String outPutDirPath = "D:\\wokspace\\点云的储存与可视化\\大数据集与工具\\data\\新建文件夹";
         List<Tuple2<String, Integer>> nodeElementsTupleList = grid3D.shardToFile(new double[]{0.001, 0.001, 0.001}, outPutDirPath);
-        TxtSplit2.createHrcFile(nodeElementsTupleList, outPutDirPath);
+        HrcFile.createHrcFileWithElementsNum(nodeElementsTupleList, outPutDirPath);
         //System.out.println(nodeElementsTupleList);
         System.out.println("总耗时：" + (System.currentTimeMillis() - startTime));
 

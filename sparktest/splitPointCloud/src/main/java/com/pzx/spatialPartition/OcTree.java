@@ -173,6 +173,16 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
     /*-----------------------------------------------------------*/
 
+    public void clearAllElements(){
+        root.traverse(new OcTreeNode.Visitor<T>() {
+            @Override
+            public boolean visit(OcTreeNode<T> treeNode) {
+                treeNode.getElements().clear();
+                return true;
+            }
+        });
+    }
+
     public OcTreeNode<T> getRootTreeNode(){return this.root;}
 
     public Cuboid getRegion(){return region;}
@@ -195,16 +205,25 @@ public class OcTree<T extends WithCuboidMBR> implements Serializable {
 
 
     public static void main(String[] args) {
-        OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),1000,40);
+        OcTree<Point3D> ocTree = new OcTree<>(new Cuboid(0,0,0,100,100,100),100,40);
         long time = System.currentTimeMillis();
-        for(int i = 0; i<1000000 ; i++){
+
+        for(int i = 0; i<100000 ; i++){
 
             Point3D point3D = new Point3D(Math.random()*10,Math.random()*10,Math.random()*90);
             ocTree.insert(point3D);
 
         }
         ocTree.printTree();
-        System.out.println(ocTree.getLeafNodeRegionsAndElementsNums());
+        System.out.println(ocTree.getTreeLevel());
+        System.out.println(System.currentTimeMillis()-time);
+        long  time1 = System.currentTimeMillis();
+        OcTreePartitioner ocTreePartitioner = new OcTreePartitioner(ocTree);
+        for(int i=0; i< 100000000; i++){
+            ocTreePartitioner.findPartitionIDForObject(new Point3D(Math.random()*100, Math.random()*100, Math.random()*100));
+        }
+        System.out.println(System.currentTimeMillis()-time1);
+
     }
 
 

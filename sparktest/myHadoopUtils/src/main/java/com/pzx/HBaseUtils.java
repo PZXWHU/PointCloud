@@ -19,11 +19,28 @@ public class HBaseUtils {
     private static Connection connection = initConnection();
     private static Admin admin = initAdmin();
 
+    public static Configuration getConfiguration()throws IOException{
+        Configuration configuration = HBaseConfiguration.create();
+
+        /*
+        InputStream hbasePropertiesInputStream = HBaseUtils.class.getClassLoader().getResourceAsStream("hbase.conf");
+        Properties hbaseProperties = new Properties();
+        hbaseProperties.load(hbasePropertiesInputStream);
+        for(String hbasePropertyNames:hbaseProperties.stringPropertyNames()){
+            configuration.set(hbasePropertyNames,hbaseProperties.getProperty(hbasePropertyNames));
+        }
+
+         */
+
+
+
+
+        return configuration;
+    }
 
     public static Connection initConnection(){
         try{
-            Configuration configuration = HBaseConfiguration.create();
-
+            Configuration configuration = getConfiguration();
 
             //公司Hbase
             //configuration.set("hbase.rootdir", "hdfs://master:9000/hbase");
@@ -32,15 +49,6 @@ public class HBaseUtils {
             configuration.set("hbase.zookeeper.property.clientPort", "2181");
             configuration.set("hbase.zookeeper.quorum", "master,slave1,slave2");
             */
-
-            /*
-            InputStream hbasePropertiesInputStream = HBaseUtils.class.getClassLoader().getResourceAsStream("hbase.conf");
-            Properties hbaseProperties = new Properties();
-            hbaseProperties.load(hbasePropertiesInputStream);
-            for(String hbasePropertyNames:hbaseProperties.stringPropertyNames()){
-                configuration.set(hbasePropertyNames,hbaseProperties.getProperty(hbasePropertyNames));
-            }
-             */
 
             connection = ConnectionFactory.createConnection(configuration);
             return connection;

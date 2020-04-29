@@ -2,6 +2,7 @@ package com.pzx.spatialPartition;
 
 import com.google.common.base.Preconditions;
 import com.pzx.geometry.Cuboid;
+import com.pzx.geometry.Point3D;
 import com.pzx.geometry.WithCuboidMBR;
 import org.apache.spark.Partitioner;
 
@@ -29,20 +30,22 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
 
     /**
      * 为每一个空间对象生成分区id
-     * @param spatialObject
-     * @param <T>
+     * @param point3D
+     * @param
      * @return
      */
-    public <T extends WithCuboidMBR> Integer findPartitionIDForObject(T spatialObject){
-        Preconditions.checkNotNull(spatialObject);
+    public  Integer findPartitionIDForObject(Point3D point3D){
+        Preconditions.checkNotNull(point3D);
         //用MBR中心点获得所属分区，保证只属于一个分区
 
-        List<Cuboid> resultRegions = ocTree.findLeafNodeRegion(spatialObject.getCuboidMBR().centerPoint());
+        List<Cuboid> resultRegions = ocTree.findLeafNodeRegion(point3D);
         Integer partitionID = partitionRegionIDMap.get(resultRegions.get(0));
         if (partitionID == null)
             throw new RuntimeException("can not find partition for the spatialObject!");
         return partitionID;
     }
+
+
 
     @Override
     public int getPartition(Object key) { return (int)key; }

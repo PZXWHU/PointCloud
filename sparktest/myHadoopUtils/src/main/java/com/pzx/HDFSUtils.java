@@ -16,18 +16,25 @@ public class HDFSUtils {
     private static Logger logger = Logger.getLogger(HDFSUtils.class);
     private static FileSystem hdfsFs = init();
 
+    public static Configuration getConfiguration() throws IOException{
+        Configuration conf = new Configuration();
+/*
+        InputStream hdfsPropertiesInputStream = HDFSUtils.class.getClassLoader().getResourceAsStream("hdfs.conf");
+        Properties hdfsProperties = new Properties();
+        hdfsProperties.load(hdfsPropertiesInputStream);
+        for(String hdfsPropertyNames:hdfsProperties.stringPropertyNames()){
+            conf.set(hdfsPropertyNames,hdfsProperties.getProperty(hdfsPropertyNames));
+        }
+
+ */
+
+
+        return conf;
+    }
 
     private static FileSystem init(){
         try {
-            Configuration conf = new Configuration();
-            /*
-            InputStream hdfsPropertiesInputStream = HDFSUtils.class.getClassLoader().getResourceAsStream("hdfs.conf");
-            Properties hdfsProperties = new Properties();
-            hdfsProperties.load(hdfsPropertiesInputStream);
-            for(String hdfsPropertyNames:hdfsProperties.stringPropertyNames()){
-                conf.set(hdfsPropertyNames,hdfsProperties.getProperty(hdfsPropertyNames));
-            }
-             */
+            Configuration conf = getConfiguration();
             FileSystem hdfsFs = FileSystem.get(conf);
             return hdfsFs;
         }catch (IOException e){
@@ -43,7 +50,7 @@ public class HDFSUtils {
      * @return
      */
     public static FileSystem getFileSystem(){
-        //FileSystem fileSystem = HDFSUtils.init();
+
         return init();
     }
 
@@ -58,7 +65,7 @@ public class HDFSUtils {
     }
 
     public static byte[] read(String filePath) throws IOException{
-        FileSystem hdfsFs = getFileSystem();
+        //FileSystem hdfsFs = getFileSystem();
         FSDataInputStream inputStream = hdfsFs.open(new Path(filePath));
         int length = inputStream.available();
         byte[] bytes = new byte[length];
@@ -72,10 +79,18 @@ public class HDFSUtils {
 
     public static void deleteFile(String filePath)throws IOException{
 
-        FileSystem hdfsFs = getFileSystem();
-        hdfsFs.deleteOnExit(new Path(filePath));
+        deleteFile(filePath, false);
+
+    }
 
 
+    public static void deleteFile(String filePath, boolean recursive)throws IOException{
+        //FileSystem hdfsFs = getFileSystem();
+        if (recursive){
+            hdfsFs.delete(new Path(filePath), true);
+        }else {
+            hdfsFs.deleteOnExit(new Path(filePath));
+        }
     }
 
 
@@ -89,7 +104,7 @@ public class HDFSUtils {
 
 
     private static List<String> listFileIsOrNotRecursive(String path,boolean recursive){
-        FileSystem hdfsFs = getFileSystem();
+        //FileSystem hdfsFs = getFileSystem();
         List<String> fileList = new ArrayList<>();
         try {
             RemoteIterator<LocatedFileStatus> iterator = hdfsFs.listFiles(new Path(path),recursive);

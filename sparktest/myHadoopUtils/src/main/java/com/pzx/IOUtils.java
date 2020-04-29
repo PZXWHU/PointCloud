@@ -56,7 +56,7 @@ public class IOUtils {
             dataOutputStream.write(data);
             dataOutputStream.close();
         }catch (IOException e){
-            throw new RuntimeException("写文件失败！");
+            throw new RuntimeException("写文件失败:"+e);
         }
 
     }
