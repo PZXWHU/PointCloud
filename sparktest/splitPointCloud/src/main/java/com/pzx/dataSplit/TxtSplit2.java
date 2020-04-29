@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Preconditions;
 import com.pzx.IOUtils;
 import com.pzx.geometry.*;
+import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.spatialPartition.OcTreePartitioner;
@@ -114,7 +115,7 @@ public class TxtSplit2 {
 
         time = System.currentTimeMillis();
         //创建索引文件
-        createHrcFile(nodeElementsNumTupleList, outputDirPath);
+        HrcFile.createHrcFileWithElementsNum(nodeElementsNumTupleList, outputDirPath);
         logger.info("-----------------------------------生成索引文件r.hrc, 耗时："+(System.currentTimeMillis()-time));
 
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-totalTime));
@@ -310,94 +311,6 @@ public class TxtSplit2 {
 
         return prunedRDDWithOriginalPartitionID.toJavaRDD();
     }
-
-    /**
-     *创建八叉树层次文件，并且在节点名后增加点数字节
-     * @param outputDirPath 输出目录
-     */
-    public static void createHrcFile(List<Tuple2<String, Integer>> nodeElementsTupleList, String outputDirPath){
-
-        Map<String, Integer> nodeElementMap = nodeElementsTupleList.stream().collect(Collectors.groupingBy(Tuple2::_1, Collectors.reducing(0, Tuple2::_2, Integer::sum)));
-
-        byte[] hrcBytes = createHrcBytes(nodeElementMap);
-
-        try {
-            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-
-    }
-
-
-    public static byte[] createHrcBytes(Map<String, Integer> nodeElementsNumMap){
-        List<String> nodeKeyList = nodeElementsNumMap.keySet().stream().collect(Collectors.toList());
-
-        nodeKeyList.sort(new Comparator<String>() {
-            @Override
-            public int compare(String o1, String o2) {
-                if(o1.length()>o2.length())
-                    return 1;
-                else if (o1.length()<o2.length())
-                    return -1;
-                else {
-                    return o1.compareTo(o2);
-                }
-            }
-        });
-
-        byte[] hrcBytes = new byte[nodeKeyList.size()*2];
-
-        for(int i=0;i<hrcBytes.length;i = i + 2){
-            String nodeKey = nodeKeyList.get(i/2);
-            byte mask = 0;
-
-            for(int j=0;j<8;j++){
-                if(nodeElementsNumMap.containsKey(nodeKey+j))
-                    mask = (byte) (mask|1<<j);
-            }
-            hrcBytes[i] = mask;
-            int elementsNum = nodeElementsNumMap.get(nodeKey);
-            int index = String.valueOf(elementsNum).length()-1;
-            hrcBytes[i+1] = (byte) ((Math.round(elementsNum/Math.pow(10, index)))| index<<4);
-        }
-        return hrcBytes;
-    }
-
-
-    /** 可用于建立全局索引
-     List<Tuple3<Integer, Cuboid,Integer>> result = partitionedDataset.toJavaRDD().mapPartitionsWithIndex((index, iterator) ->{
-     //如果分区为空，则返回null
-     if (!iterator.hasNext()){
-     return Arrays.asList(new Tuple3<Integer, Cuboid,Integer>(index, null,0)).iterator();
-     }
-
-     double minX = Double.MAX_VALUE;
-     double minY = Double.MAX_VALUE;
-     double minZ = Double.MAX_VALUE;
-     double maxX = -Double.MAX_VALUE;
-     double maxY = -Double.MAX_VALUE;
-     double maxZ = -Double.MAX_VALUE;
-     int pointNum = 0;
-     do{
-     pointNum ++;
-     Point3D point3D = iterator.next();
-     minX = Math.min(minX,point3D.x);
-     minY = Math.min(minY,point3D.y);
-     minZ = Math.min(minZ,point3D.z);
-     maxX = Math.max(maxX,point3D.x);
-     maxY = Math.max(maxY,point3D.y);
-     maxZ = Math.max(maxZ,point3D.z);
-     }while (iterator.hasNext());
-
-     Cuboid partitionRegion = new Cuboid(minX,minY,minZ,maxX,maxY,maxZ);
-     return Arrays.asList(new Tuple3<>(index, partitionRegion,pointNum)).iterator();
-
-     },true).collect();
-
-     System.out.println(result);
-     */
-
 
 
 }

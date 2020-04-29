@@ -6,6 +6,7 @@ import com.pzx.IOUtils;
 import com.pzx.distributedLock.DistributedRedisLock;
 import com.pzx.geometry.Cube;
 import com.pzx.geometry.Cuboid;
+import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.SparkUtils;
@@ -68,7 +69,7 @@ public class TxtSplit1 {
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
 
         //创建索引文件
-        LasSplit.createHrcFile(outputDirPath);
+        HrcFile.createHrcFile(outputDirPath);
         logger.info("-----------------------------------生成索引文件r.hrc");
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
 

@@ -10,6 +10,7 @@ import com.pzx.geometry.Cuboid;
 import com.pzx.lasFile.LasFile;
 import com.pzx.lasFile.LasFileHeader;
 import com.pzx.lasFile.LasFilePointData;
+import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
 import com.pzx.utils.LittleEndianUtils;
@@ -64,7 +65,7 @@ public class LasSplit {
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成");
 
 
-        createHrcFile(outputDirPath);
+        HrcFile.createHrcFile(outputDirPath);
         //createHrcRow(tableName);
         logger.info("-----------------------------------生成索引文件r.hrc");
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
@@ -420,59 +421,7 @@ public class LasSplit {
      */
 
 
-    /**
-     * 利用输出目录中所有的bin文件的文件名（即nodeKey），生成索引文件
-     * @param outputDirPath 输出目录
-     */
-    public static void createHrcFile(String outputDirPath){
 
-        List<String> binFilePathList = IOUtils.listAllFiles(outputDirPath).stream().filter((x)->{return x.endsWith(".bin");}).collect(Collectors.toList());
-        List<String> nodeKeyList = binFilePathList.stream()
-                .map((binFilePath)->binFilePath.substring(binFilePath.lastIndexOf(File.separator)+1,binFilePath.lastIndexOf("."))) //将路径以及文件后缀名截除
-                .map(binFile->binFile.substring(binFile.lastIndexOf("r"))) //将层级编码去除
-                .collect(Collectors.toList());
-
-        byte[] hrcBytes = createHrcBytes(nodeKeyList);
-
-        try {
-            IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-
-    }
-
-
-    public static byte[] createHrcBytes(List<String> nodeKeyList){
-        HashSet<String> nodeKeySet = (HashSet<String>) nodeKeyList.stream().collect(Collectors.toSet());
-
-        nodeKeyList.sort(new Comparator<String>() {
-            @Override
-            public int compare(String o1, String o2) {
-                if(o1.length()>o2.length())
-                    return 1;
-                else if (o1.length()<o2.length())
-                    return -1;
-                else {
-                    return o1.compareTo(o2);
-                }
-            }
-        });
-        byte[] hrcBytes = new byte[nodeKeyList.size()];
-
-        for(int i=0;i<hrcBytes.length;i++){
-            String nodeKey = nodeKeyList.get(i);
-            byte mask = 0;
-
-            for(int j=0;j<8;j++){
-                if(nodeKeySet.contains(nodeKey+j))
-                    mask = (byte) (mask|1<<j);
-            }
-            hrcBytes[i] = mask;
-        }
-
-        return hrcBytes;
-    }
 
     /*
     直接根据表中的数据生成hrc文件
