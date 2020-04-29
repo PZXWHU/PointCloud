@@ -84,13 +84,12 @@ public class Grid3D {
         return totalElementsNum.getValue();
     }
 
-    public List<Tuple2<String, Integer>> shardToFile(double[] coordinatesScale, String outputDirPath){
-        List<Tuple2<String, Integer>> nodeElementsTupleList = new ArrayList<>();
+    public HashMap<String, List<byte[]>> shardToNode(double[] coordinatesScale){
+        HashMap<String, List<byte[]>> nodeElementsBuffer = new HashMap<>();
         rootLayer.traverse(new Grid3DLayer.Visitor() {
             @Override
             public boolean visit(Grid3DLayer grid3DLayer) {
 
-                HashMap<String, List<byte[]>> buffer = new HashMap<>();
                 Map<Long, List<Point3D>> cellElementsMap = grid3DLayer.getCellElementsMap();
                 Cube totalBoundingBox = (Cube)grid3DLayer.getTotalRegion();
 
@@ -98,25 +97,29 @@ public class Grid3D {
                     String nodeKey = entry.getKey();
                     HashSet<Long> cellKeys = entry.getValue();
 
-                    buffer.putIfAbsent(nodeKey, new ArrayList<>());
+                    nodeElementsBuffer.putIfAbsent(nodeKey, new ArrayList<>());
                     double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey, totalBoundingBox);
-
 
                     for(Long cellKey : cellKeys){
                         List<byte[]> pointBytes = cellElementsMap.get(cellKey).stream().map(point3D -> point3D.serialize(xyzOffset, coordinatesScale)).collect(Collectors.toList());
-                        buffer.get(nodeKey).addAll(pointBytes);
+                        nodeElementsBuffer.get(nodeKey).addAll(pointBytes);
                     }
-
                 }
-                buffer.forEach((nodekey,list)->{
-                    DistributedRedisLock.lock(nodekey);
-                    String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
-                    IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
-                    DistributedRedisLock.unlock(nodekey);
-                    nodeElementsTupleList.add(new Tuple2<String, Integer>(nodekey, list.size()));
-                });
                 return true;
             }
+        });
+        return nodeElementsBuffer;
+    }
+
+    public List<Tuple2<String, Integer>> shardToFile(double[] coordinatesScale, String outputDirPath){
+        List<Tuple2<String, Integer>> nodeElementsTupleList = new ArrayList<>();
+        HashMap<String, List<byte[]>> nodeElementsBuffer = shardToNode(coordinatesScale);
+        nodeElementsBuffer.forEach((nodekey,list)->{
+            DistributedRedisLock.lock(nodekey);
+            String outputFilePath = outputDirPath+ File.separator+(nodekey.length()-1)+nodekey+".bin";
+            IOUtils.writerDataToFile(outputFilePath,list.iterator(),true);
+            DistributedRedisLock.unlock(nodekey);
+            nodeElementsTupleList.add(new Tuple2<String, Integer>(nodekey, list.size()));
         });
         return nodeElementsTupleList;
     }

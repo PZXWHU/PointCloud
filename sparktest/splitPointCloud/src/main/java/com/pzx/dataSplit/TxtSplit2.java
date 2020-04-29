@@ -9,6 +9,7 @@ import com.pzx.pointCloud.PointCloud;
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.utils.SparkUtils;
+import jodd.inex.InExRuleMatcher;
 import org.apache.commons.io.Charsets;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -184,8 +185,6 @@ public class TxtSplit2 {
             public Encoder<PointCloud> outputEncoder() { return Encoders.kryo(PointCloud.class); }
         }
 
-
-
         //有类型限制的聚合
         CreatePointCloudUDAF createPointCloudUDAF = new CreatePointCloudUDAF();
         TypedColumn<Point3D, PointCloud> aggPointCloud = createPointCloudUDAF.toColumn();
@@ -357,7 +356,9 @@ public class TxtSplit2 {
                     mask = (byte) (mask|1<<j);
             }
             hrcBytes[i] = mask;
-            hrcBytes[i+1] = (byte) nodeElementsNumMap.get(nodeKey).intValue();
+            int elementsNum = nodeElementsNumMap.get(nodeKey);
+            int index = String.valueOf(elementsNum).length()-1;
+            hrcBytes[i+1] = (byte) ((Math.round(elementsNum/Math.pow(10, index)))| index<<4);
         }
         return hrcBytes;
     }
