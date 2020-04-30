@@ -7,6 +7,7 @@ import com.pzx.DataImport;
 import com.pzx.HBaseUtils;
 import com.pzx.IOUtils;
 import com.pzx.geometry.*;
+import com.pzx.pointCloud.CreatePointCloudUDAF;
 import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
@@ -88,8 +89,8 @@ public class TxtSplit2 {
         fields.add(DataTypes.createStructField("x", DataTypes.DoubleType, false));
         fields.add(DataTypes.createStructField("y", DataTypes.DoubleType, false));
         fields.add(DataTypes.createStructField("z", DataTypes.DoubleType, false));
-        fields.add(DataTypes.createStructField("intensity", DataTypes.IntegerType, false));
-        fields.add(DataTypes.createStructField("r", DataTypes.IntegerType, false));
+        fields.add(DataTypes.createStructField("intensity", DataTypes.IntegerType, false));//此处使用ByteType并没有太大关系，其不会造成同行的所有列变为ull，因为谓词下推功能，此列数据实际上并没有被解析。
+        fields.add(DataTypes.createStructField("r", DataTypes.IntegerType, false));//此处使用IntegerType是因为如果使用ByteType其只能解析范围在[-128,127]内的整数，对于大于127的整数解析为null，并且会造成同行所有的列都被解析为null；
         fields.add(DataTypes.createStructField("g", DataTypes.IntegerType, false));
         fields.add(DataTypes.createStructField("b", DataTypes.IntegerType, false));
         StructType scheme = DataTypes.createStructType(fields);
@@ -98,23 +99,13 @@ public class TxtSplit2 {
         Dataset<Row> originDataset = sparkSession.read()
                 .format("csv")
                 .option("sep"," ")
-                .schema(scheme)
-                //.option("inferSchema","true") 模式推理会导致源数据被加载两遍
+                .schema(scheme) //.option("inferSchema","true") 模式推理会导致源数据被加载两遍
                 .load(inputDirPath)
                 .selectExpr("x","y","z","r","g","b");
 
         Dataset<Row> cachedDataSet = originDataset.persist(StorageLevel.MEMORY_AND_DISK_SER());
 
-        Dataset<Point3D> point3DDataset = cachedDataSet.map((MapFunction<Row, Point3D>) row->{
-            double x = (double)row.getAs("x");
-            double y = (double)row.getAs("y");
-            double z = (double)row.getAs("z");
-            int r = (int)row.getAs("r");
-            int g = (int)row.getAs("g");
-            int b = (int)row.getAs("b");
-            return new Point3D(x,y,z,(byte)r,(byte)g,(byte)b);
-        },Encoders.kryo(Point3D.class));
-
+        //System.out.println(cachedDataSet.where("r < 128").where("g<128").where("b<128").count());
 
         //创建cloud.js文件
         PointCloud pointCloud = TxtSplit1.createCloudJS(cachedDataSet,outputDirPath);
@@ -122,7 +113,7 @@ public class TxtSplit2 {
 
         time = System.currentTimeMillis();
         //切分点云
-        List<Tuple2<String, Integer>> nodeElementsNumTupleList = splitPointCloud(point3DDataset,pointCloud,tableName);
+        List<Tuple2<String, Integer>> nodeElementsNumTupleList = splitPointCloud(cachedDataSet,pointCloud,tableName);
         logger.info("-----------------------------------点云分片任务完成，bin文件全部生成, 耗时："+(System.currentTimeMillis()-time));
 
         time = System.currentTimeMillis();
@@ -147,59 +138,6 @@ public class TxtSplit2 {
      */
     public static PointCloud createCloudJS(Dataset<Point3D> point3DDataset, String  outputDirPath){
 
-        class CreatePointCloudUDAF extends Aggregator<Point3D, PointCloud, PointCloud> {
-            @Override
-            public PointCloud zero() {
-                PointCloud pointCloud = new PointCloud();
-                pointCloud.setPoints(0);
-                pointCloud.setTightBoundingBox(new Cuboid(Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,
-                        -Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE ));
-                return pointCloud;
-            }
-            @Override
-            public PointCloud reduce(PointCloud pointCloud, Point3D point3D) {
-                pointCloud.setPoints(pointCloud.getPoints() + 1);
-                Cuboid tightBoundingBox = pointCloud.getTightBoundingBox();
-
-                tightBoundingBox.setMaxX(Math.max(point3D.x, tightBoundingBox.getMaxX()));
-                tightBoundingBox.setMaxY(Math.max(point3D.y, tightBoundingBox.getMaxY()));
-                tightBoundingBox.setMaxZ(Math.max(point3D.z, tightBoundingBox.getMaxZ()));
-                tightBoundingBox.setMinX(Math.min(point3D.x,tightBoundingBox.getMinX()));
-                tightBoundingBox.setMinY(Math.min(point3D.y,tightBoundingBox.getMinY()));
-                tightBoundingBox.setMaxZ(Math.min(point3D.z,tightBoundingBox.getMinZ()));
-
-                return pointCloud;
-            }
-            @Override
-            public PointCloud merge(PointCloud pointCloud1, PointCloud pointCloud2) {
-                pointCloud1.setPoints(pointCloud1.getPoints() + pointCloud2.getPoints());
-                Cuboid tightBoundingBox1 = pointCloud1.getTightBoundingBox();
-                Cuboid tightBoundingBox2 = pointCloud2.getTightBoundingBox();
-
-                tightBoundingBox1.setMaxX(Math.max(tightBoundingBox1.getMaxX(), tightBoundingBox2.getMaxX()));
-                tightBoundingBox1.setMaxY(Math.max(tightBoundingBox1.getMaxY(), tightBoundingBox2.getMaxY()));
-                tightBoundingBox1.setMaxZ(Math.max(tightBoundingBox1.getMaxZ(), tightBoundingBox2.getMaxZ()));
-                tightBoundingBox1.setMinX(Math.min(tightBoundingBox1.getMinX(), tightBoundingBox2.getMinX()));
-                tightBoundingBox1.setMinY(Math.min(tightBoundingBox1.getMinY(), tightBoundingBox2.getMinY()));
-                tightBoundingBox1.setMinZ(Math.min(tightBoundingBox1.getMinZ(), tightBoundingBox2.getMinZ()));
-
-                return pointCloud1;
-            }
-            @Override
-            public PointCloud finish(PointCloud pointCloud) {
-                pointCloud.setBoundingBox(pointCloud.createBoundingBox(pointCloud.getTightBoundingBox()));
-                pointCloud.setScales(new double[]{0.001,0.001,0.001});
-                pointCloud.setPointAttributes(Arrays.asList(PointAttribute.POSITION_XYZ, PointAttribute.RGB));
-                return pointCloud;
-            }
-
-            @Override
-            public Encoder<PointCloud> bufferEncoder() { return Encoders.kryo(PointCloud.class); }
-
-            @Override
-            public Encoder<PointCloud> outputEncoder() { return Encoders.kryo(PointCloud.class); }
-        }
-
         //有类型限制的聚合
         CreatePointCloudUDAF createPointCloudUDAF = new CreatePointCloudUDAF();
         TypedColumn<Point3D, PointCloud> aggPointCloud = createPointCloudUDAF.toColumn();
@@ -214,9 +152,9 @@ public class TxtSplit2 {
 
 
 
-    public static List<Tuple2<String, Integer>> splitPointCloud(Dataset<Point3D> point3DDataset, PointCloud pointCloud,String tableName){
+    public static List<Tuple2<String, Integer>> splitPointCloud(Dataset<Row> rowDataset, PointCloud pointCloud,String tableName){
 
-        Tuple2<JavaPairRDD<Integer, Point3D>, OcTreePartitioner> partitionedResultTuple = spatialPartitioning(point3DDataset.toJavaRDD(),pointCloud);
+        Tuple2<JavaPairRDD<Integer, Point3D>, OcTreePartitioner> partitionedResultTuple = spatialPartitioning(rowDataset,pointCloud);
         JavaPairRDD<Integer, Point3D> partitionedRDDWithPartitionID = partitionedResultTuple._1;
         OcTreePartitioner ocTreePartitioner = partitionedResultTuple._2;
 
@@ -231,16 +169,29 @@ public class TxtSplit2 {
         return nodeElementsNumTupleList;
     }
 
+    public static Point3D rowToPoint3D(Row row){
+        double x = (double)row.getAs("x");
+        double y = (double)row.getAs("y");
+        double z = (double)row.getAs("z");
+        int r = (int)row.getAs("r");
+        int g = (int)row.getAs("g");
+        int b = (int)row.getAs("b");
+        return new Point3D(x,y,z,(byte)r,(byte)g,(byte)b);
+    }
+
     /**
      * 利用八叉树对RDD进行分区
-     * @param point3DJavaRDD
+     * @param rowDataset
      * @param pointCloud
      * @return
      */
-    public static Tuple2<JavaPairRDD<Integer,Point3D>, OcTreePartitioner> spatialPartitioning(JavaRDD<Point3D> point3DJavaRDD, PointCloud pointCloud){
+    public static Tuple2<JavaPairRDD<Integer,Point3D>, OcTreePartitioner> spatialPartitioning(Dataset<Row> rowDataset, PointCloud pointCloud){
 
         double sampleFraction = 0.01;//百分之一
-        List<Point3D> samples = point3DJavaRDD.sample(false,sampleFraction).collect();
+        List<Point3D> samples = rowDataset.sample(false,sampleFraction)
+                .collectAsList().stream().map(row->rowToPoint3D(row)).collect(Collectors.toList());
+
+        JavaRDD<Point3D> point3DJavaRDD = rowDataset.map((MapFunction<Row, Point3D>) row->rowToPoint3D(row),Encoders.kryo(Point3D.class)).toJavaRDD();
 
         int partitionNum = point3DJavaRDD.partitions().size();
         Cube boundingBox = pointCloud.getBoundingBox();
@@ -250,7 +201,6 @@ public class TxtSplit2 {
 
         OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion,partitionNum);
         OcTreePartitioner ocTreePartitioner = ocTreePartitioning.getPartitioner();
-
 
         JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID = point3DJavaRDD.mapPartitionsToPair(pointIterator -> {
 
@@ -262,6 +212,7 @@ public class TxtSplit2 {
             }
             return result.iterator();
         }).partitionBy(ocTreePartitioner);
+
 
         return new Tuple2<JavaPairRDD<Integer,Point3D>, OcTreePartitioner>(partitionedRDDWithPartitionID, ocTreePartitioner);
     }

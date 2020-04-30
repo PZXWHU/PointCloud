@@ -1,0 +1,4 @@
+1、避免模式推断  option("inferSchema","true") 模式推理会导致源数据被加载两遍
+2、 never do twice  RDD同样的过程不能做多次 通过persist和shuffle进行数据缓存
+3、开启堆外内存
+4、增大年轻代

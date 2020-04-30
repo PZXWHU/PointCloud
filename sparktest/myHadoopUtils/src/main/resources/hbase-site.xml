@@ -69,4 +69,9 @@
          <name>hbase.thrift.minWorkerThreads</name>
          <value>200</value>
     </property>
+    <property>
+        <name>hbase.mapreduce.bulkload.max.hfiles.perRegion.perFamily</name>
+        <value>3200</value>
+    </property>
+
 </configuration>
