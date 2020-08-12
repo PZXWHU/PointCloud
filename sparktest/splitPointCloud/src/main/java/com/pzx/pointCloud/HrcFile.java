@@ -78,7 +78,6 @@ public class HrcFile implements Serializable {
     public static void createHrcFileWithElementsNum(List<Tuple2<String, Integer>> nodeElementsTupleList, String outputDirPath){
 
         Map<String, Integer> nodeElementMap = nodeElementsTupleList.stream().collect(Collectors.groupingBy(Tuple2::_1, Collectors.reducing(0, Tuple2::_2, Integer::sum)));
-
         byte[] hrcBytes = createHrcBytesWithElementsNum(nodeElementMap);
 
         try {

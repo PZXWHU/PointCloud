@@ -15,6 +15,7 @@ public class KDBTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNod
     private final int SPLIT_X = 1;
     private final int SPLIT_Y = 2;
     private final int SPLIT_Z = 3;
+
     private int splitDirection;
     private T middleElement;
 
@@ -69,17 +70,18 @@ public class KDBTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNod
     /**
      * 以左下角点进行判断
      */
-    protected int queryChildIndex(T element) {
+    protected SplittableTreeNode<T> queryChildNode(T element) {
         Point3D minPoint = element.getMBB().minPoint();
+        int childIndex;
         if (region.contains(minPoint)){
-            switch (splitDirection){
-                case SPLIT_X:
-                    return minPoint.x <= middleElement.getMBB().getMinX() ? 0 : 1;
-                case SPLIT_Y:
-                    return minPoint.y <= middleElement.getMBB().getMinY() ? 0 : 1;
-                case SPLIT_Z:
-                    return minPoint.z <= middleElement.getMBB().getMinZ() ? 0 : 1;
-            }
+            if (splitDirection ==SPLIT_X)
+                childIndex =  minPoint.x <= middleElement.getMBB().getMinX() ? 0 : 1;
+            else if (splitDirection == SPLIT_Y)
+                childIndex =  minPoint.y <= middleElement.getMBB().getMinY() ? 0 : 1;
+            else
+                childIndex =  minPoint.z <= middleElement.getMBB().getMinZ() ? 0 : 1;
+
+            return children.get(childIndex);
         }
         throw new IllegalArgumentException("无法找到包含输入要素的子节点");
 

@@ -33,25 +33,38 @@ public abstract class SplittableTreeNode<T extends MinimumBoundingBox> implement
         this.elements = new ArrayList<>();
     }
 
+    /**
+     * 将节点范围划分为若个个子节点范围
+     * @param region
+     * @return
+     */
     abstract protected Cuboid[] splitRegion(Cuboid region);
 
-    abstract protected int queryChildIndex(T element);
+    /**
+     * 查找当前节点中的元素所应该划分到的子节点（元素只会属于一个子节点，按照元素最小包围盒最下角判断）
+     * @param element
+     * @return
+     */
+    abstract protected SplittableTreeNode<T> queryChildNode(T element);
 
     abstract protected SplittableTreeNode<T> createChildNode(Cuboid region);
 
+    /**
+     * 插入导致分裂，当前节点中的元素只会插入到一个子节点
+     * @param element
+     */
     public final void insert(T element){
 
         elementNum++;
         if (isLeafNode()){
             elements.add(element);
-            if(elements.size() >= maxElementsPerNode && level < maxLevel){
+            if(elements.size() > maxElementsPerNode && level < maxLevel){
                 splitNode();
             }
             return;
         }
 
-        int childIndex = queryChildIndex(element);
-        children.get(childIndex).insert(element);
+        queryChildNode(element).insert(element);
     }
 
     private void splitNode(){
@@ -61,7 +74,7 @@ public abstract class SplittableTreeNode<T extends MinimumBoundingBox> implement
             children.add(createChildNode(childrenRegions[i]));
         }
         for(T element : elements){
-            children.get(queryChildIndex(element)).insert(element);
+            queryChildNode(element).insert(element);
         }
         elements = null;
     }

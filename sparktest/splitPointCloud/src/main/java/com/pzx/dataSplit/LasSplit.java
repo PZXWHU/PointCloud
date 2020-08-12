@@ -304,9 +304,6 @@ public class LasSplit {
         });
 
 
-
-
-
         try {
             HDFSUtils.deleteFile(outputDirPath+File.separator+tmpFileName);
         }catch (Exception e){
@@ -318,121 +315,6 @@ public class LasSplit {
     }
 
 
-    /**
-     * 在内存中使用list进行缓冲，不写入中间文件，直接使用parallelize，分发到spark集群中
-     * 此方法在内存中使用list很耗时，从driver中分发到集群也很耗时，所以不使用此方法
-     * @param sc JavaSparkContext用于触发spark任务
-     * @param pointBytesList 点字节数组，用于spark任务的源数据
-     * @param cloudjs 点云的信息，包括包围盒，总点数，用于广播变量（rdd转换使用）
-     * @param outputDirPath 输出目录
-     *
-     */
-    /*
-    public static void doSparkTask(JavaSparkContext sc,List<byte[]> pointBytesList,JSONObject cloudjs,String outputDirPath){
-
-        //广播变量
-        int maxLevel = SplitUtils.getMaxLevel(cloudjs.getLong("points"),pointNumPerNode,dimension);
-        JSONObject boundingBoxJson = cloudjs.getJSONObject("boundingBox");
-        double[] boundingBox = new double[]{boundingBoxJson.getDoubleValue("ux"),boundingBoxJson.getDoubleValue("uy"),boundingBoxJson.getDoubleValue("uz"),
-                boundingBoxJson.getDoubleValue("lx"),boundingBoxJson.getDoubleValue("ly"),boundingBoxJson.getDoubleValue("lz")};
-        double[] scale = (double[])cloudjs.get("scale");
-
-        JavaRDD<byte[]> pointBytesRDD = sc.parallelize(pointBytesList);
-
-        pointBytesRDD.mapToPair((byte[] pointByes)->{
-
-            byte[] bytes = new byte[8];
-            for(int i=0;i<8;i++){
-                bytes[i] = pointByes[i];
-            }
-            double x  = LittleEndianUtils.bytesToDouble(bytes);
-            for(int i=0;i<8;i++){
-                bytes[i] = pointByes[8+i];
-            }
-            double y  = LittleEndianUtils.bytesToDouble(bytes);
-            for(int i=0;i<8;i++){
-                bytes[i] = pointByes[16+i];
-            }
-            double z = LittleEndianUtils.bytesToDouble(bytes);
-
-            double clod = SplitUtils.getClod(maxLevel,dimension);
-            String nodeKey = SplitUtils.getOctreeNodeName(x,y,z,boundingBox,clod);
-            double[] xyzOffset = SplitUtils.getXYZOffset(nodeKey,boundingBox);
-            int newX = (int)((x-xyzOffset[0])/scale[0]);
-            int newY = (int)((y-xyzOffset[1])/scale[1]);
-            int newZ = (int)((z-xyzOffset[2])/scale[2]);
-            byte r = pointByes[24];
-            byte g = pointByes[25];
-            byte b = pointByes[26];
-
-            byte[] pointNewByes = new byte[15];
-            byte[] xBytes = LittleEndianUtils.integerToBytes(newX);
-            byte[] yBytes = LittleEndianUtils.integerToBytes(newY);
-            byte[] zBytes = LittleEndianUtils.integerToBytes(newZ);
-
-            for(int i=0;i<4;i++){
-                pointNewByes[i] = xBytes[i];
-            }
-            for(int i=0;i<4;i++){
-                pointNewByes[i+4] = yBytes[i];
-            }
-            for(int i=0;i<4;i++){
-                pointNewByes[i+8] = zBytes[i];
-            }
-            pointNewByes[12] = r;
-            pointNewByes[13] = g;
-            pointNewByes[14] = b;
-
-            return new Tuple2<String,byte[]>(nodeKey,pointByes);
-
-
-
-        }).combineByKey((byte[] pointByes)->{
-            List<byte[]> list = new ArrayList();
-            list.add(pointByes);
-            return list;
-        },(List<byte[]> list1,byte[] pointByes)->{
-            list1.add(pointByes);
-            return list1;
-        },(List<byte[]> list1,List<byte[]> list2)->{
-            list1.addAll(list2);
-            return list1;
-        }).foreach((Tuple2<String,List<byte[]>> tuple2)->{
-            String nodeKey = tuple2._1;
-            Iterator<byte[]> iterator = tuple2._2.iterator();
-
-            ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-            while (iterator.hasNext()){
-                byte[]  pointBytes = iterator.next();
-                byteOutputStream.write(pointBytes);
-            }
-            IOUtils.writerDataToFile(outputDirPath+File.separator+nodeKey+".bin",byteOutputStream.toByteArray(),true);
-            byteOutputStream.close();
-        });
-
-    }
-
-     */
-
-
-
-
-    /*
-    直接根据表中的数据生成hrc文件
-    public static void createHrcRow(String tableName){
-        Filter keyOnlyFilter = new KeyOnlyFilter();
-        Map<String,byte[]> resultMap = HBaseUtils.scan(tableName,null,null,"data","bin",keyOnlyFilter);
-        //获得的keyString：r3422467-data-bin
-        List<String> nodeKeyList = resultMap.keySet().stream()
-                .filter(nodeKey -> nodeKey.contains("r"))
-                .map(nodeKey -> nodeKey.split("-")[0].substring(1))
-                .collect(Collectors.toList());
-
-        byte[] hrcBytes = createHrcBytes(nodeKeyList);
-        HBaseUtils.put(tableName,"hrc","data","hrc",hrcBytes);
-    }
-
-     */
 
 
 }

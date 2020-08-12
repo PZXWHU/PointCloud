@@ -17,4 +17,9 @@ public class OcTree<T extends MinimumBoundingBox> extends SplittableTree<T>  {
     public List<T> knnQuery(int k) {
         return null;
     }
+
+    @Override
+    public boolean remove(T element) {
+        return false;
+    }
 }

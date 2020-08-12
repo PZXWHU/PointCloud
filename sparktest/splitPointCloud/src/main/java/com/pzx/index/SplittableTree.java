@@ -21,10 +21,13 @@ public abstract class SplittableTree<T extends MinimumBoundingBox> implements In
         this.region = region;
     }
 
-    @Override
     /**
      * 范围相交查询，利用元素的最小包围盒判断相交，所以为粗查询
+     * TODO:目前只针对储存点元素的查询，对于多边形的查询可能会有错误。
+     * TODO: 针对多边形的查询有三种种方法：1、数据冗余，在与多边形相交的每个子结点中都储存该元素。2、范围扩展，节点分裂之后，将每个子节点的范围扩大到包含所有元素。3、将元素储存在能包含其范围的节点中，而向下划分到其子节点
+     * TODO：但是因为目前索引的作用是用来数据分区，且查询只针对点元素，所以还未改进
      */
+    @Override
     public List<T> rangeQuery(Cuboid cuboid) {
         List<T> resultElements = new ArrayList<>();
         root.traverse(new SplittableTreeNode.Visitor<T>() {
@@ -43,11 +46,6 @@ public abstract class SplittableTree<T extends MinimumBoundingBox> implements In
             }
         });
         return resultElements;
-    }
-
-    @Override
-    public final boolean remove(T element) {
-        return false;
     }
 
     @Override

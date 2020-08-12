@@ -7,6 +7,7 @@ import com.pzx.index.SplittableTreeNode;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 public class OcTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNode<T> {
 
@@ -41,17 +42,18 @@ public class OcTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNode
     /**
      * 以左下角点进行判断
      */
-    protected int queryChildIndex(T element) {
+    protected SplittableTreeNode<T> queryChildNode(T element) {
         Point3D minPoint = element.getMBB().minPoint();
         int childIndex = 0;
         if (region.contains(minPoint)){
             childIndex = (minPoint.x <= (region.getMinX() + region.getMaxX()) / 2) ? childIndex : childIndex | (1 << 2);
             childIndex = (minPoint.y <= (region.getMinY() + region.getMaxY()) / 2) ? childIndex : childIndex | (1 << 1);
             childIndex = (minPoint.z <= (region.getMinZ() + region.getMaxZ()) / 2) ? childIndex : childIndex | (1 << 0);
-            return childIndex;
+            return children.get(childIndex);
         }
         throw new IllegalArgumentException("无法找到包含输入要素的子节点");
     }
+
 
     @Override
     protected OcTreeNode<T> createChildNode(Cuboid region){
