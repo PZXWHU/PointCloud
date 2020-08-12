@@ -3,7 +3,8 @@ package com.pzx.spatialPartition;
 import com.google.common.base.Preconditions;
 import com.pzx.geometry.Cuboid;
 import com.pzx.geometry.Point3D;
-import com.pzx.geometry.WithCuboidMBR;
+import com.pzx.geometry.MinimumBoundingBox;
+import com.pzx.index.ocTree.OcTree;
 import org.apache.spark.Partitioner;
 
 
@@ -15,17 +16,16 @@ import java.util.Map;
 
 public class OcTreePartitioner extends Partitioner implements Serializable {
 
-    private OcTree<? extends WithCuboidMBR> ocTree;
+    private OcTree<? extends MinimumBoundingBox> ocTree;
     private List<Cuboid> partitionRegions;
     private HashMap<Cuboid, Integer> partitionRegionIDMap = new HashMap<>();
 
-    public OcTreePartitioner(OcTree<? extends WithCuboidMBR> ocTree) {
+    public OcTreePartitioner(OcTree<? extends MinimumBoundingBox> ocTree) {
         this.ocTree = ocTree;
-        this.partitionRegions = ocTree.getLeafNodeRegions();
+        this.partitionRegions = ocTree.getAllLeafNodeRegions();
         for(int partitionID =0 ; partitionID<partitionRegions.size(); partitionID++){
             partitionRegionIDMap.put(partitionRegions.get(partitionID), partitionID);
         }
-
     }
 
     /**
@@ -38,13 +38,12 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
         Preconditions.checkNotNull(point3D);
         //用MBR中心点获得所属分区，保证只属于一个分区
 
-        List<Cuboid> resultRegions = ocTree.findLeafNodeRegion(point3D);
+        List<Cuboid> resultRegions = ocTree.queryLeafNodeRegions(point3D);
         Integer partitionID = partitionRegionIDMap.get(resultRegions.get(0));
         if (partitionID == null)
             throw new RuntimeException("can not find partition for the spatialObject!");
         return partitionID;
     }
-
 
 
     @Override
@@ -56,8 +55,6 @@ public class OcTreePartitioner extends Partitioner implements Serializable {
     }
 
     public List<Cuboid> getPartitionRegions(){ return this.partitionRegions;}
-
-    //public OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
 
     public Cuboid getPartitionsTotalRegions(){return ocTree.getRegion();}
 

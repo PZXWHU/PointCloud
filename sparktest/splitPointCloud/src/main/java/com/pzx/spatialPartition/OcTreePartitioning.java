@@ -1,25 +1,24 @@
 package com.pzx.spatialPartition;
 
 import com.pzx.geometry.Cuboid;
-import com.pzx.geometry.Point3D;
-import com.pzx.geometry.WithCuboidMBR;
+import com.pzx.geometry.MinimumBoundingBox;
+import com.pzx.index.ocTree.OcTree;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 public class OcTreePartitioning implements Serializable {
 
-    private OcTree<WithCuboidMBR> ocTree;
+    private OcTree<MinimumBoundingBox> ocTree;
 
-    public OcTreePartitioning(List<? extends WithCuboidMBR> samples, Cuboid boundary, int partitions){
+    public OcTreePartitioning(List<? extends MinimumBoundingBox> samples, Cuboid boundary, int partitions){
 
         // Make sure the tree doesn't get too deep in case of data skew
         int maxLevel = partitions;
         int maxElementsPerNode = samples.size() / partitions;
         ocTree = new OcTree<>(boundary, maxElementsPerNode , maxLevel);
 
-        for(WithCuboidMBR sample : samples){
+        for(MinimumBoundingBox sample : samples){
             ocTree.insert(sample);
         }
 
@@ -30,7 +29,7 @@ public class OcTreePartitioning implements Serializable {
         return new OcTreePartitioner(ocTree);
     }
 
-    private OcTree<? extends WithCuboidMBR> getOcTree(){return this.ocTree;}
+    private OcTree<? extends MinimumBoundingBox> getOcTree(){return this.ocTree;}
 
 
 

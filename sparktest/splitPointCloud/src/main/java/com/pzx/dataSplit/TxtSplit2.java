@@ -7,7 +7,6 @@ import com.pzx.DataImport;
 import com.pzx.HBaseUtils;
 import com.pzx.IOUtils;
 import com.pzx.geometry.*;
-import com.pzx.pointCloud.CreatePointCloudUDAF;
 import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
@@ -135,7 +134,7 @@ public class TxtSplit2 {
      * @param point3DDataset
      * @param outputDirPath
      * @return
-     */
+
     public static PointCloud createCloudJS(Dataset<Point3D> point3DDataset, String  outputDirPath){
 
         //有类型限制的聚合
@@ -149,7 +148,7 @@ public class TxtSplit2 {
         return pointCloud;
 
     }
-
+    */
 
 
     public static List<Tuple2<String, Integer>> splitPointCloud(Dataset<Row> rowDataset, PointCloud pointCloud,String tableName){
@@ -197,9 +196,9 @@ public class TxtSplit2 {
         Cube boundingBox = pointCloud.getBoundingBox();
         //将分区范围扩大一点点，避免因浮点数精度问题，导致与边界重合的点不在范围内
         //传入正方体范围以便后面的网格处理
-        Cube partitionsTotalRegion = (Cube) boundingBox.expandLittle();
+        Cuboid partitionsTotalRegion = boundingBox.expandLittle();
 
-        OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion,partitionNum);
+        OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion, partitionNum);
         OcTreePartitioner ocTreePartitioner = ocTreePartitioning.getPartitioner();
 
         JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID = point3DJavaRDD.mapPartitionsToPair(pointIterator -> {
@@ -257,7 +256,7 @@ public class TxtSplit2 {
                                                                 OcTreePartitioner ocTreePartitioner,PointCloud pointCloud){
 
         List<Cuboid> partitionRegions = ocTreePartitioner.getPartitionRegions();
-        Cube partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions().toBoundingBoxCube();
+        Cube partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions().toCube();
         //初始网格一个坐标轴的单元数,网格单元边长
         int initGridOneSideCellNum = 1 << 5;
         double initGridCellSideLength = partitionsTotalRegion.getXSideLength() / initGridOneSideCellNum;

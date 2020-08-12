@@ -6,6 +6,9 @@ import java.nio.ByteOrder;
 
 public class LittleEndianUtils {
 
+    private LittleEndianUtils(){
+
+    }
 
     public static short bytesToShort(byte b1, byte b2){
         return (short) bytesToInteger(b1,b2,(byte)0,(byte)0);

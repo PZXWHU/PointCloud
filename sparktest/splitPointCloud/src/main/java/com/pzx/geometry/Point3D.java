@@ -4,16 +4,15 @@ import com.pzx.utils.SplitUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 import java.io.Serializable;
-import java.nio.Buffer;
 
-public class Point3D implements WithCuboidMBR, Serializable {
+public class Point3D implements MinimumBoundingBox, Serializable {
 
-    public double x;
-    public double y;
-    public double z;
-    public byte r;
-    public byte g;
-    public byte b;
+    public final double x;
+    public final double y;
+    public final double z;
+    public final byte r;
+    public final byte g;
+    public final byte b;
 
 
 
@@ -51,7 +50,7 @@ public class Point3D implements WithCuboidMBR, Serializable {
     }
 
     @Override
-    public Cuboid getCuboidMBR() {
+    public Cuboid getMBB() {
         return new Cuboid(x,y,z,x,y,z);
     }
 

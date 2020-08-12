@@ -2,15 +2,17 @@ package com.pzx.utils;
 
 import com.google.common.base.Preconditions;
 import com.pzx.geometry.*;
+import com.pzx.index.ocTree.OcTreeNode;
 import com.pzx.pointCloud.HrcFile;
-import com.pzx.spatialPartition.OcTree;
-import com.pzx.spatialPartition.OcTreeNode;
+import com.pzx.index.ocTree.OcTree;
+
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.dataSplit.LasSplit;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SparkSession;
 
 
@@ -22,6 +24,8 @@ public class SparkUtils {
 
     private static Logger logger = Logger.getLogger(SparkUtils.class);
 
+    private SparkUtils(){
+    }
 
     /**
      * 从内部定义的配置文件初始化并设置SparkConf
@@ -95,6 +99,7 @@ public class SparkUtils {
         Preconditions.checkNotNull(sparkConf);
         registerMyKryoClasses(sparkConf);
         SparkSession spark = SparkSession.builder().config(sparkConf).getOrCreate();
+
         return spark;
 
     }
@@ -102,10 +107,18 @@ public class SparkUtils {
     public static SparkSession localSparkSessionInit(){
         SparkConf sparkConf = loadSparkConf("spark.conf");
         Preconditions.checkNotNull(sparkConf);
-        sparkConf.set("spark.master","local[*]");
+        sparkConf.set("spark.master","local[1]");
         sparkConf.set("spark.app.name","localTestApp");
         SparkSession spark = SparkSession.builder().config(sparkConf).getOrCreate();
         return spark;
     }
 
+    public static SQLContext sqlContextInit(){
+        return new SQLContext(sparkSessionInit());
+    }
+
+    public static void main(String[] args) {
+        SparkSession sparkSession = sparkSessionInit();
+
+    }
 }

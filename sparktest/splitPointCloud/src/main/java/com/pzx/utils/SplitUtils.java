@@ -19,6 +19,10 @@ public class SplitUtils {
 
     private static Logger logger = Logger.getLogger(SparkUtils.class);
 
+    private SplitUtils(){
+
+    }
+
     public static double getClod(long pointNum,long pointNumPerNode,int dimension){
 
         int maxLevel = getMaxLevel(pointNum,pointNumPerNode,dimension);

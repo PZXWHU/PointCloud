@@ -8,6 +8,7 @@ import org.apache.spark.sql.expressions.Aggregator;
 
 import java.util.Arrays;
 
+/*
 public class CreatePointCloudUDAF extends Aggregator<Point3D, PointCloud, PointCloud> {
     @Override
     public PointCloud zero() {
@@ -60,3 +61,5 @@ public class CreatePointCloudUDAF extends Aggregator<Point3D, PointCloud, PointC
     @Override
     public Encoder<PointCloud> outputEncoder() { return Encoders.kryo(PointCloud.class); }
 }
+
+ */
