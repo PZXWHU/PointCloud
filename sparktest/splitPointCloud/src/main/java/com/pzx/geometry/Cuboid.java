@@ -2,37 +2,48 @@ package com.pzx.geometry;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import org.apache.spark.sql.sources.In;
+import org.checkerframework.checker.units.qual.C;
 
 import java.io.Serializable;
 
 public class Cuboid implements MinimumBoundingBox, Serializable {
 
-    private final double minX;
-    private final double minY;
-    private final double minZ;
-    private final double maxX;
-    private final double maxY;
-    private final double maxZ;
+    private double minX;
+    private double minY;
+    private double minZ;
+    private double maxX;
+    private double maxY;
+    private double maxZ;
 
+    Cuboid(){}
 
-    public Cuboid(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+    public static Cuboid createFromMinAndMaxCoordinate(double minX, double minY, double minZ, double maxX, double maxY, double maxZ){
         Preconditions.checkArgument(minX<=maxX && minY<=maxY && minZ<=maxZ,
                 "the first three parameters {} {} {} must be smaller than the last three {} {} {}！"
                 ,minX, minY, minZ, maxX ,maxY, maxZ);
-        this.minX = minX;
-        this.minY = minY;
-        this.minZ = minZ;
-        this.maxX = maxX;
-        this.maxY = maxY;
-        this.maxZ = maxZ;
+        Cuboid cuboid = new Cuboid();
+        cuboid.setMinX(minX);
+        cuboid.setMinY(minY);
+        cuboid.setMinZ(minZ);
+        cuboid.setMaxX(maxX);
+        cuboid.setMaxY(maxY);
+        cuboid.setMaxZ(maxZ);
+        return cuboid;
     }
 
-    public Cuboid(Point3D minPoint , Point3D maxPoint){
-        this(minPoint.x, minPoint.y, minPoint.z, maxPoint.x, maxPoint.y, maxPoint.z);
+    public static Cuboid createFromMinPointAndSideLength(Point3D minPoint , double xLength , double yLength , double zLength){
+        return createFromMinAndMaxCoordinate(minPoint.x, minPoint.y, minPoint.z,
+                minPoint.x + xLength, minPoint.y + yLength, minPoint.z + zLength);
     }
 
-    public Cuboid(Point3D minPoint , double xLength , double yLength , double zLength){
-        this(minPoint.x, minPoint.y, minPoint.z, minPoint.x + xLength, minPoint.y + yLength, minPoint.z + zLength);
+    public static Cuboid createFromMinAndMaxPoint(Point3D minPoint , Point3D maxPoint){
+        return createFromMinAndMaxCoordinate(minPoint.x, minPoint.y, minPoint.z, maxPoint.x, maxPoint.y, maxPoint.z);
+    }
+
+    public static Cuboid createFromCenterPointAndSideLength(Point3D centerPoint , double xLength , double yLength , double zLength){
+        return createFromMinAndMaxCoordinate(centerPoint.x - xLength / 2, centerPoint.y - yLength / 2, centerPoint.z - zLength / 2,
+                centerPoint.x + xLength / 2, centerPoint.y + yLength / 2, centerPoint.z + zLength / 2);
     }
 
 
@@ -88,12 +99,12 @@ public class Cuboid implements MinimumBoundingBox, Serializable {
         if(!this.intersects(other)){
             return Optional.absent();
         }
-        return Optional.of(new Cuboid(Math.max(minX, other.minX), Math.max(minY, other.minY), Math.max(minZ, other.minZ),
+        return Optional.of(Cuboid.createFromMinAndMaxCoordinate(Math.max(minX, other.minX), Math.max(minY, other.minY), Math.max(minZ, other.minZ),
                 Math.min(maxX, other.maxX),Math.min(maxY, other.maxY), Math.min(maxZ, other.maxZ) ));
     }
 
     public Cuboid mergedRegion(Cuboid other){
-        return new Cuboid(Math.min(minX, other.minX), Math.min(minY, other.minY),Math.min(minZ, other.minZ),
+        return Cuboid.createFromMinAndMaxCoordinate(Math.min(minX, other.minX), Math.min(minY, other.minY),Math.min(minZ, other.minZ),
                 Math.max(maxX,other.maxX),Math.max(maxY,other.maxY),Math.max(maxZ,other.maxZ) );
     }
 
@@ -111,10 +122,27 @@ public class Cuboid implements MinimumBoundingBox, Serializable {
      */
     public Cuboid expandLittle(){
         double expand = (maxX - minX) /10000.0;
-        return new Cuboid(minX - expand, minY - expand, minZ - expand , maxX + expand, maxY + expand, maxZ + expand);
+        return expand(expand);
     }
 
+    public Cuboid expand(double expand){
+        return Cuboid.createFromMinAndMaxCoordinate(minX - expand, minY - expand, minZ - expand,
+                maxX + expand, maxY + expand, maxZ + expand);
+    }
 
+    public Cuboid expandSelf(double expand){
+        this.minX = minX - expand;
+        this.minY = minY - expand;
+        this.minZ = minZ - expand;
+        this.maxX = maxX + expand;
+        this.maxY = maxY + expand;
+        this.maxZ = maxZ + expand;
+        return this;
+    }
+
+    public double getVolume(){
+        return (maxX - minX) * (maxY - minY) * (maxZ - minZ);
+    }
 
     public double getXSideLength(){ return maxX-minX; }
 
@@ -150,7 +178,29 @@ public class Cuboid implements MinimumBoundingBox, Serializable {
         return maxZ;
     }
 
+    public void setMinX(double minX) {
+        this.minX = minX;
+    }
 
+    public void setMinY(double minY) {
+        this.minY = minY;
+    }
+
+    public void setMinZ(double minZ) {
+        this.minZ = minZ;
+    }
+
+    public void setMaxX(double maxX) {
+        this.maxX = maxX;
+    }
+
+    public void setMaxY(double maxY) {
+        this.maxY = maxY;
+    }
+
+    public void setMaxZ(double maxZ) {
+        this.maxZ = maxZ;
+    }
 
     @Override
     public Cuboid getMBB() {

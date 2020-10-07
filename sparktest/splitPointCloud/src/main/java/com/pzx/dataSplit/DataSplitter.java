@@ -9,7 +9,9 @@ import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class DataSplitter {
+import java.io.Serializable;
+
+public abstract class DataSplitter implements Serializable {
 
     protected String inputDirPath;
 
@@ -37,7 +39,6 @@ public abstract class DataSplitter {
         createCloudJS();
         splitData();
         createHrc();
-        bulkLoad();
         sparkSessionClose();
         logger.info("-----------------------------------此次点云分片任务全部耗时为："+(System.currentTimeMillis()-time));
     }
@@ -52,17 +53,12 @@ public abstract class DataSplitter {
 
     abstract protected void createHrc();
 
-    /**
-     * 默认空实现，需要直接进行bulkload的任务，重写此方法即可
-     */
-    protected void bulkLoad(){
-
-    }
 
     private void sparkSessionClose(){
         sparkSession.stop();
         sparkSession.close();
     }
+
 
 
 }

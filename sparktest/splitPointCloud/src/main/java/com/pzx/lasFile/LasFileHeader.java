@@ -184,7 +184,7 @@ public class LasFileHeader {
      * @return
      */
     public Cuboid getBox(){
-        return new Cuboid(getMinX(),getMinY(),getMinZ(), getMaxX(),getMaxY(),getMaxZ());
+        return Cuboid.createFromMinAndMaxCoordinate(getMinX(),getMinY(),getMinZ(), getMaxX(),getMaxY(),getMaxZ());
     }
 
 

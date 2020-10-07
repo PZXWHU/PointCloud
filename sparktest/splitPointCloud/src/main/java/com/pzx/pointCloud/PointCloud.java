@@ -11,24 +11,11 @@ import java.util.List;
 
 public class PointCloud implements Serializable {
 
-    public long points;
-    public Cuboid tightBoundingBox;//maxx, maxy, maxz,minx,miny,minz
-    public Cube boundingBox;//maxx, maxy, maxz,minx,miny,minz
-    public List<PointAttribute> pointAttributes;
-    public double[] scales;
-/*
-    public static int maxX = 0;
-    public static int maxY = 1;
-    public static int maxZ = 2;
-    public static int minX = 3;
-    public static int minY = 4;
-    public static int minZ = 5;
-
- */
-
-    public PointCloud(){
-
-    }
+    public final long points;
+    public final Cuboid tightBoundingBox;//maxx, maxy, maxz,minx,miny,minz
+    public final Cube boundingBox;//maxx, maxy, maxz,minx,miny,minz
+    public final List<PointAttribute> pointAttributes;
+    public final double[] scales;
 
     public PointCloud(long points, Cuboid tightBoundingBox, List<PointAttribute> pointAttributes, double[] scales) {
         this.points = points;
@@ -84,31 +71,17 @@ public class PointCloud implements Serializable {
         return tightBoundingBox;
     }
 
-    public void setTightBoundingBox(Cuboid tightBoundingBox) {
-        this.tightBoundingBox = tightBoundingBox;
-    }
-
     public Cube getBoundingBox() {
         return boundingBox;
-    }
-
-    public void setBoundingBox(Cube boundingBox) {
-        this.boundingBox = boundingBox;
     }
 
     public List<PointAttribute> getPointAttributes() {
         return pointAttributes;
     }
 
-    public void setPointAttributes(List<PointAttribute> pointAttributes) {
-        this.pointAttributes = pointAttributes;
-    }
-
     public long getPoints() { return points; }
-
-    public void setPoints(long points) { this.points = points; }
 
     public double[] getScales() { return scales; }
 
-    public void setScales(double[] scales) { this.scales = scales; }
+
 }

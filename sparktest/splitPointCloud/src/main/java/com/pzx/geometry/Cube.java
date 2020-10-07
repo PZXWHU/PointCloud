@@ -9,7 +9,12 @@ public class Cube extends Cuboid implements Serializable {
     private double sideLength;
 
     public Cube(double minX, double minY, double minZ, double sideLength){
-        super(new Point3D(minX,minY,minZ),sideLength,sideLength,sideLength);
+        this.setMinX(minX);
+        this.setMinY(minY);
+        this.setMinZ(minZ);
+        this.setMaxX(minX + sideLength);
+        this.setMaxY(minY + sideLength);
+        this.setMaxZ(minZ + sideLength);
         this.sideLength = sideLength;
     }
 

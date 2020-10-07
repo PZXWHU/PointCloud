@@ -2,23 +2,35 @@ package com.pzx.utils;
 
 import com.google.common.base.Preconditions;
 import com.pzx.geometry.*;
+import com.pzx.index.SplittableTree;
+import com.pzx.index.SplittableTreeNode;
 import com.pzx.index.ocTree.OcTreeNode;
 import com.pzx.pointCloud.HrcFile;
 import com.pzx.index.ocTree.OcTree;
 
+import com.pzx.spatialPartition.CustomPartitioner;
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.dataSplit.LasSplit;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.rdd.PartitionPruningRDD;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SparkSession;
+import scala.Tuple2;
+import scala.runtime.AbstractFunction1;
 
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SparkUtils {
 
@@ -60,6 +72,9 @@ public class SparkUtils {
         Class[] classesToRegister = new Class[]{
                 Cuboid.class,
                 Point3D.class,
+                CustomPartitioner.class,
+                SplittableTree.class,
+                SplittableTreeNode.class,
                 OcTree.class,
                 OcTreeNode.class,
                 OcTreePartitioner.class,
@@ -121,4 +136,7 @@ public class SparkUtils {
         SparkSession sparkSession = sparkSessionInit();
 
     }
+
+
+
 }

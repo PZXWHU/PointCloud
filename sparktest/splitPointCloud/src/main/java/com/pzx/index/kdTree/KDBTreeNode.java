@@ -46,16 +46,16 @@ public class KDBTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNod
 
         switch (splitDirection){
             case SPLIT_X:
-                childrenCuboid[0] = new Cuboid(region.getMinX(), region.getMinY(), region.getMinZ(), middleElement.getMBB().getMinX(), region.getMaxY(), region.getMaxZ());
-                childrenCuboid[1] = new Cuboid(middleElement.getMBB().getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
+                childrenCuboid[0] = Cuboid.createFromMinAndMaxCoordinate(region.getMinX(), region.getMinY(), region.getMinZ(), middleElement.getMBB().getMinX(), region.getMaxY(), region.getMaxZ());
+                childrenCuboid[1] = Cuboid.createFromMinAndMaxCoordinate(middleElement.getMBB().getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
                 break;
             case SPLIT_Y:
-                childrenCuboid[0] = new Cuboid(region.getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), middleElement.getMBB().getMinY(), region.getMaxZ());
-                childrenCuboid[1] = new Cuboid(region.getMinX(),  middleElement.getMBB().getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
+                childrenCuboid[0] = Cuboid.createFromMinAndMaxCoordinate(region.getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), middleElement.getMBB().getMinY(), region.getMaxZ());
+                childrenCuboid[1] = Cuboid.createFromMinAndMaxCoordinate(region.getMinX(),  middleElement.getMBB().getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
                 break;
             case SPLIT_Z:
-                childrenCuboid[0] = new Cuboid(region.getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), middleElement.getMBB().getMinZ());
-                childrenCuboid[1] = new Cuboid(region.getMinX(), region.getMinY(), middleElement.getMBB().getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
+                childrenCuboid[0] = Cuboid.createFromMinAndMaxCoordinate(region.getMinX(), region.getMinY(), region.getMinZ(), region.getMaxX(), region.getMaxY(), middleElement.getMBB().getMinZ());
+                childrenCuboid[1] = Cuboid.createFromMinAndMaxCoordinate(region.getMinX(), region.getMinY(), middleElement.getMBB().getMinZ(), region.getMaxX(), region.getMaxY(), region.getMaxZ());
                 break;
         }
         return childrenCuboid;

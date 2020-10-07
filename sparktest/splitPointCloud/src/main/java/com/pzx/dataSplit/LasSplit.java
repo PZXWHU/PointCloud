@@ -94,7 +94,7 @@ public class LasSplit {
     private static PointCloud getPointCloudInformation(List<String> lasFilePathList){
         long points = 0L;
         double[] scale = new double[]{1,1,1};
-        Cuboid tightBoundingBox = new Cuboid(Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,
+        Cuboid tightBoundingBox = Cuboid.createFromMinAndMaxCoordinate(Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE,
                 -Double.MIN_VALUE,-Double.MIN_VALUE,-Double.MIN_VALUE);
         double[] boundingBox;
 

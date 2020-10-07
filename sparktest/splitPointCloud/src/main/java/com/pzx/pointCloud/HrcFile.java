@@ -75,10 +75,9 @@ public class HrcFile implements Serializable {
      *创建八叉树层次文件，并且在节点名后增加点数字节
      * @param outputDirPath 输出目录
      */
-    public static void createHrcFileWithElementsNum(List<Tuple2<String, Integer>> nodeElementsTupleList, String outputDirPath){
+    public static void createHrcFileWithElementsNum(Map<String, Integer> nodeElementsNumMap, String outputDirPath){
 
-        Map<String, Integer> nodeElementMap = nodeElementsTupleList.stream().collect(Collectors.groupingBy(Tuple2::_1, Collectors.reducing(0, Tuple2::_2, Integer::sum)));
-        byte[] hrcBytes = createHrcBytesWithElementsNum(nodeElementMap);
+        byte[] hrcBytes = createHrcBytesWithElementsNum(nodeElementsNumMap);
 
         try {
             IOUtils.writerDataToFile(outputDirPath+File.separator+"r.hrc",hrcBytes,false);

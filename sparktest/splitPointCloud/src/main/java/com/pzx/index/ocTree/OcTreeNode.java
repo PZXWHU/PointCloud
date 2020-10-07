@@ -31,7 +31,7 @@ public class OcTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNode
             double newMinX = region.getMinX() + childXLength * (i>>2 & 1);
             double newMinY = region.getMinY() + childYLength * (i>>1 & 1);
             double newMinZ = region.getMinZ() + childZLength * (i>>0 & 1);
-            childrenCuboid[i] = new Cuboid(newMinX,newMinY,newMinZ,
+            childrenCuboid[i] = Cuboid.createFromMinAndMaxCoordinate(newMinX,newMinY,newMinZ,
                     newMinX + childXLength,newMinY + childYLength,newMinZ + childZLength);
         }
 
@@ -51,7 +51,7 @@ public class OcTreeNode<T extends MinimumBoundingBox> extends SplittableTreeNode
             childIndex = (minPoint.z <= (region.getMinZ() + region.getMaxZ()) / 2) ? childIndex : childIndex | (1 << 0);
             return children.get(childIndex);
         }
-        throw new IllegalArgumentException("无法找到包含输入要素的子节点");
+        throw new IllegalArgumentException("无法找到包含输入要素的子节点:" + region + "  " + minPoint);
     }
 
 

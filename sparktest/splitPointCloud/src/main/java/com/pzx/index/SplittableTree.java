@@ -93,6 +93,17 @@ public abstract class SplittableTree<T extends MinimumBoundingBox> implements In
         return leafRegions;
     }
 
+    public final Set<T> getAllElements(){
+        Set<T> elements = new HashSet<>();
+        root.traverse(treeNode -> {
+            if(treeNode.isLeafNode()){
+                elements.addAll(treeNode.getElements());
+            }
+            return true;
+        });
+        return elements;
+    }
+
     /*
     public final List<Long> getLeafNodeElementsNums(){
         List<Long> leafElementsNum = new ArrayList<>();

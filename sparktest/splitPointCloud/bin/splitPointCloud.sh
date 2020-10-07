@@ -22,6 +22,13 @@ spark-submit --driver-memory 2g --executor-memory 4g --executor-cores 1 --class 
 --conf spark.executor.extraJavaOptions="-Xmn2g" \
 splitPointCloud_new.jar hdfs://master:9000/pzx/txtdata/sg27.txt hdfs://master:9000/pzx/custom streetTestData
 
+spark-submit --driver-memory 2g --executor-memory 4g --executor-cores 1 --class com.pzx.dataSplit.TxtSplit3 \
+--conf spark.driver.extraJavaOptions="-Dlog4j.configuration=file:/home/pzx/log4j-driver.properties" \
+--conf spark.memory.storageFraction=0.4  \
+--conf spark.memory.offHeap.enabled="true"  \
+--conf spark.memory.offHeap.size="1048576" \
+--conf spark.executor.extraJavaOptions="-Xmn2g" \
+splitPointCloud.jar hdfs://master:9000/pzx/txtdata/test.txt hdfs://master:9000/pzx/custom
 
 
 

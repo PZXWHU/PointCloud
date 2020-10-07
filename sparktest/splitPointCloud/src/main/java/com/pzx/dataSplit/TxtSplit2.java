@@ -10,6 +10,7 @@ import com.pzx.geometry.*;
 import com.pzx.pointCloud.HrcFile;
 import com.pzx.pointCloud.PointAttribute;
 import com.pzx.pointCloud.PointCloud;
+import com.pzx.spatialPartition.CustomPartitioner;
 import com.pzx.spatialPartition.OcTreePartitioner;
 import com.pzx.spatialPartition.OcTreePartitioning;
 import com.pzx.utils.SparkUtils;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
  */
 public class TxtSplit2 extends TxtSplitter {
 
-
     /**
      * 目前存在两大问题  gc时间过长   java数据结构使用过多 占用内存过大
      * 数据分区不均匀  导致某些Task时间过长
@@ -50,11 +50,6 @@ public class TxtSplit2 extends TxtSplitter {
 
     private static Logger logger = Logger.getLogger(TxtSplit2.class);
 
-    private final double sampleFraction = 0.01;//百分之一
-
-    private OcTreePartitioner ocTreePartitioner;
-
-    private JavaPairRDD<String, List<byte[]>> nodeElementsRDD;
 
     private String tableName;
 
@@ -63,177 +58,56 @@ public class TxtSplit2 extends TxtSplitter {
         this.tableName = tableName;
     }
 
-    @Override
-    protected void sparkSessionInit() {
-        sparkSession = SparkUtils.sparkSessionInit();
-    }
-
 
     @Override
     protected void splitData() {
         //空间分区
-        JavaPairRDD<Integer, Point3D> partitionedRDDWithPartitionID = spatialPartitioning(rowDataSet, pointCloud);
+        JavaPairRDD<Integer, Point3D> partitionedRDDWithPartitionID = spatialPartitioning();
         //分区裁剪
-        JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDDWithPartitionID);
+        JavaPairRDD<Integer,Point3D> prunedRDDWithOriginalPartitionID = partitionsPruning(partitionedRDDWithPartitionID);
         //网格筛选
-        nodeElementsRDD = shardToNode(prunedRDDWithOriginalPartitionID, ocTreePartitioner, pointCloud);
+        nodeElementsRDD = shardToNode(prunedRDDWithOriginalPartitionID);
         //直接插入数据库
-        bulkLoad(nodeElementsRDD, tableName);
+        bulkLoad(tableName);
     }
 
     @Override
     protected void createHrc() {
-        List<Tuple2<String, Integer>> nodeElementsNumTupleList = nodeElementsRDD.mapToPair(tuple->new Tuple2<String, Integer>(tuple._1, tuple._2.size())).collect();
-        HrcFile.createHrcFileWithElementsNum(nodeElementsNumTupleList, outputDirPath);
+        Map<String, Integer> nodeElementsMap = nodeElementsRDD
+                .mapToPair(tuple->new Tuple2<String, Integer>(tuple._1, tuple._2.size()))
+                .collectAsMap();
+
+        HrcFile.createHrcFileWithElementsNum(nodeElementsMap, outputDirPath);
     }
 
-    public  Point3D rowToPoint3D(Row row){
-        double x = (double)row.getAs("x");
-        double y = (double)row.getAs("y");
-        double z = (double)row.getAs("z");
-        int r = (int)row.getAs("r");
-        int g = (int)row.getAs("g");
-        int b = (int)row.getAs("b");
-        return new Point3D(x,y,z,(byte)r,(byte)g,(byte)b);
-    }
+
 
     /**
      * 利用八叉树对RDD进行分区
 
      * @return
      */
-    private JavaPairRDD<Integer,Point3D> spatialPartitioning(Dataset<Row> rowDataSet, PointCloud pointCloud){
-        //抽样
-        List<Point3D> samples = rowDataSet.sample(false,sampleFraction)
-                .collectAsList().stream().map(row->rowToPoint3D(row)).collect(Collectors.toList());
-       ;
+    private JavaPairRDD<Integer,Point3D> spatialPartitioning(){
+
+        partitioner = getPartitioner(rowDataSet, sampleFraction);
+
         JavaRDD<Point3D> pointJavaRDD = rowDataSet.map((MapFunction<Row, Point3D>) row->rowToPoint3D(row), Encoders.kryo(Point3D.class)).toJavaRDD();
-
-        int partitionNum = pointJavaRDD.partitions().size();
-        Cube boundingBox = pointCloud.getBoundingBox();
-        //将分区范围扩大一点点，避免因浮点数精度问题，导致与边界重合的点不在范围内
-        //传入正方体范围以便后面的网格处理
-        Cuboid partitionsTotalRegion = boundingBox.expandLittle();
-
-        OcTreePartitioning ocTreePartitioning = new OcTreePartitioning(samples, partitionsTotalRegion, partitionNum);
-        ocTreePartitioner = ocTreePartitioning.getPartitioner();
 
         JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID = pointJavaRDD.mapPartitionsToPair(pointIterator -> {
             List<Tuple2<Integer, Point3D>> result = new ArrayList<>();
             while (pointIterator.hasNext()){
                 Point3D point3D = pointIterator.next();
-                int partitionID = ocTreePartitioner.findPartitionIDForObject(point3D);
+                int partitionID = partitioner.findPartitionIDs(point3D).get(0);
                 result.add(new Tuple2<Integer, Point3D>(partitionID, point3D));
             }
             return result.iterator();
-        }).partitionBy(ocTreePartitioner);
+        }).partitionBy(partitioner);
 
         return partitionedRDDWithPartitionID;
     }
 
 
-    /**
-     * 分区裁剪，排除没有数据的分区
-     * @param partitionedRDDWithPartitionID
-     * @return
-     */
-    private JavaRDD<Tuple2<Integer,Point3D>> partitionsPruning(JavaPairRDD<Integer,Point3D> partitionedRDDWithPartitionID){
-        //收集非空的分区索引集合
-        Set<Integer> notEmptyPartitionSet = partitionedRDDWithPartitionID.mapPartitionsWithIndex((index, iterator) ->{
-            if (iterator.hasNext()){
-                return Arrays.asList(index).iterator();
-            }
-            return Collections.emptyIterator();
-        },true).collect().stream().collect(Collectors.toSet());
 
-        class PartitionPruningFunction extends AbstractFunction1<Object, Object> implements Serializable{
-            Set<Integer> notEmptyPartitionSet;
-            public PartitionPruningFunction(Set<Integer> notEmptyPartitionSet){
-                this.notEmptyPartitionSet = notEmptyPartitionSet;
-            }
-            @Override
-            public Boolean apply(Object v1) {
-                return notEmptyPartitionSet.contains((Integer)v1);
-            }
-        }
-
-        //分区裁剪RDD，传入函数，根据分区id计算出布尔值，true则保留分区，false裁剪分区
-        PartitionPruningRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID = PartitionPruningRDD.create(partitionedRDDWithPartitionID.rdd(),
-                new PartitionPruningFunction(notEmptyPartitionSet));
-
-        return prunedRDDWithOriginalPartitionID.toJavaRDD();
-    }
-
-    /**
-     * 将点数据划分到八叉树节点中
-     * @param prunedRDDWithOriginalPartitionID
-     * @return
-     */
-    private JavaPairRDD<String, List<byte[]>> shardToNode(JavaRDD<Tuple2<Integer,Point3D>> prunedRDDWithOriginalPartitionID,
-                                                                OcTreePartitioner ocTreePartitioner,PointCloud pointCloud){
-
-        List<Cuboid> partitionRegions = ocTreePartitioner.getPartitionRegions();
-        Cube partitionsTotalRegion = ocTreePartitioner.getPartitionsTotalRegions().toCube();
-        //初始网格一个坐标轴的单元数,网格单元边长
-        int initGridOneSideCellNum = 1 << 5;
-        double initGridCellSideLength = partitionsTotalRegion.getXSideLength() / initGridOneSideCellNum;
-        double[] coordinatesScale = pointCloud.getScales();
-
-        //广播变量
-        Broadcast<List<Cuboid>> partitionRegionsBroadcast = sparkSession.sparkContext().broadcast(partitionRegions, ClassManifestFactory.classType(List.class));
-
-        JavaPairRDD<String, List<byte[]>> nodeElementsRDD = prunedRDDWithOriginalPartitionID.mapPartitionsToPair((Iterator<Tuple2<Integer,Point3D>> iterator) ->{
-
-            Tuple2<Integer, Point3D> pointWithOriginalPartitionID = iterator.next();
-            Cuboid partitionRegion = partitionRegionsBroadcast.getValue().get(pointWithOriginalPartitionID._1);
-            Grid3D grid3D = new Grid3D(partitionRegion, initGridCellSideLength, partitionsTotalRegion);
-
-            grid3D.insert(pointWithOriginalPartitionID._2);
-            while (iterator.hasNext()){
-                grid3D.insert(iterator.next()._2);
-            }
-
-            HashMap<String, List<byte[]>> nodeElementsMap = grid3D.shardToNode(coordinatesScale);
-            List<Tuple2<String, List<byte[]>>> nodeElementsTupleList = SplitUtils.mapToTupleList(nodeElementsMap);
-
-            return nodeElementsTupleList.iterator();
-        }, true).reduceByKey((list1, list2)->{
-            list1.addAll(list2);
-            return list1;
-        });
-
-        return nodeElementsRDD;
-    }
-
-    private void bulkLoad(JavaPairRDD<String, List<byte[]>> nodeElementsRDD, String tableName) {
-        JavaPairRDD<ImmutableBytesWritable, KeyValue> hFileRDD = nodeElementsRDD.mapToPair(tuple->{
-            String nodeKey = tuple._1();
-            return new Tuple2<String,List<byte[]>>((nodeKey.length()-1)+ nodeKey, tuple._2);
-        }).sortByKey().mapToPair(tuple->{
-            String nodeKey = tuple._1;
-            List<byte[]> pointsBytesList = tuple._2;
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            for(byte[] pointBytes : pointsBytesList){
-                byteArrayOutputStream.write(pointBytes);
-            }
-            byte[] pointBytesArray = byteArrayOutputStream.toByteArray();
-
-            byte[] rowKey = Bytes.toBytes(nodeKey);
-            byte[] columnFamily = Bytes.toBytes("data");
-            byte[] columnQualifier = Bytes.toBytes("bin");
-            ImmutableBytesWritable immutableRowKey = new ImmutableBytesWritable(rowKey);
-
-            KeyValue keyValue = new KeyValue(rowKey, columnFamily, columnQualifier, pointBytesArray);
-            return new Tuple2<ImmutableBytesWritable, KeyValue>(immutableRowKey, keyValue);
-        });
-        try {
-            BulkLoad.bulkLoad(hFileRDD, tableName);
-        }catch (Exception e){
-            logger.warn(e);
-            throw new RuntimeException("bulkLoad data to HBase failed: " + e);
-        }
-
-    }
 
 
     /*
